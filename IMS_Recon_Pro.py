@@ -234,15 +234,12 @@ def inject_css():
         :root {
             --navy:#071a3d;
             --navy2:#0d2d63;
-            --navy3:#113f84;
             --light-navy:#d9e6f7;
             --panel:#f7fbff;
             --card:#ffffff;
-            --border:#ccdaec;
+            --border:#cbd9ea;
             --text:#112244;
             --muted:#5c6b85;
-            --saffron:#ff9933;
-            --green:#138808;
             --gold:#d89a3f;
             --red:#e1563a;
             --orange:#f4a62a;
@@ -252,24 +249,24 @@ def inject_css():
 
         .stApp {
             background:
-                radial-gradient(circle at top left, rgba(255,153,51,0.13), transparent 26%),
-                radial-gradient(circle at bottom right, rgba(19,136,8,0.10), transparent 28%),
-                linear-gradient(180deg, #d6e3f5 0%, #c9d9ee 45%, #dce8f7 100%);
+                radial-gradient(circle at top left, rgba(13,45,99,0.12), transparent 28%),
+                radial-gradient(circle at bottom right, rgba(77,141,247,0.12), transparent 30%),
+                linear-gradient(180deg, #d8e6f7 0%, #c9d9ee 45%, #dce8f7 100%);
         }
 
         header[data-testid="stHeader"] {
             visibility: visible !important;
             height: auto !important;
-            background: rgba(218, 231, 247, 0.92) !important;
+            background: rgba(218, 231, 247, 0.94) !important;
             backdrop-filter: blur(8px);
             border-bottom: 1px solid rgba(7,26,61,0.10);
         }
         div[data-testid="stToolbar"] { visibility:hidden; height:0; }
 
         .block-container {
-            padding-top: 1.25rem;
+            padding-top: 1rem;
             padding-bottom: 1.5rem;
-            max-width: 1560px;
+            max-width: 1480px;
         }
 
         section[data-testid="stSidebar"] {
@@ -339,6 +336,134 @@ def inject_css():
             color:#ffffff;
         }
 
+        .app-header-card {
+            background:#ffffff;
+            border:1px solid #c9d8ea;
+            border-radius:24px;
+            overflow:hidden;
+            box-shadow:0 16px 34px rgba(7,26,61,0.12);
+            margin-bottom:20px;
+        }
+        .app-header-top {
+            background: linear-gradient(135deg, #071a3d 0%, #0b2d64 48%, #0d3b78 100%);
+            padding:24px 28px;
+            display:grid;
+            grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.85fr);
+            gap:22px;
+            align-items:center;
+            min-height:150px;
+        }
+        .header-brand {
+            display:flex;
+            align-items:center;
+            gap:18px;
+            min-width:0;
+        }
+        .header-logo {
+            min-width:76px;
+            width:76px;
+            height:76px;
+            border-radius:24px;
+            background: linear-gradient(135deg, #ffffff 0%, #eef5ff 100%);
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            color:#0b2a5d;
+            font-size:34px;
+            font-weight:900;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.18);
+        }
+        .header-title {
+            font-size:40px;
+            line-height:1.05;
+            font-weight:900;
+            color:#ffffff;
+            letter-spacing:-0.02em;
+            margin:0;
+        }
+        .header-title span { color:#f6c354; }
+        .header-subtitle {
+            color:#dbe8ff;
+            font-size:17px;
+            margin-top:9px;
+            line-height:1.45;
+            max-width:760px;
+        }
+        .header-note {
+            color:#bfd1ee;
+            font-size:13px;
+            margin-top:7px;
+        }
+        .header-user-card {
+            justify-self:end;
+            width:100%;
+            max-width:420px;
+            background: rgba(255,255,255,0.10);
+            border:1px solid rgba(255,255,255,0.16);
+            border-radius:22px;
+            padding:18px;
+        }
+        .user-card-row {
+            display:flex;
+            align-items:center;
+            gap:14px;
+        }
+        .user-avatar {
+            min-width:58px;
+            width:58px;
+            height:58px;
+            border-radius:18px;
+            background:#eef5ff;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            font-size:27px;
+        }
+        .user-small {font-size:13px;color:#dbe8ff;}
+        .user-big {font-size:19px;font-weight:850;color:#ffffff;margin-top:2px;line-height:1.25;}
+        .user-copy {
+            margin-top:12px;
+            padding-top:12px;
+            border-top:1px solid rgba(255,255,255,0.14);
+            display:flex;
+            justify-content:space-between;
+            gap:12px;
+            color:#dbe8ff;
+            font-size:13px;
+        }
+        .header-meta-band {
+            background: linear-gradient(90deg, #edf3fb 0%, #e4eef9 45%, #d8e7f7 100%);
+            border-top:1px solid #d2e0ef;
+            padding:16px 22px;
+            display:grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap:14px;
+        }
+        .meta-item {
+            background:#ffffff;
+            border:1px solid #d7e2ef;
+            border-radius:16px;
+            padding:12px 14px;
+            display:flex;
+            gap:12px;
+            align-items:center;
+            min-height:70px;
+            overflow:hidden;
+        }
+        .meta-icon {
+            min-width:42px;
+            width:42px;
+            height:42px;
+            border-radius:12px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            background:#eef4ff;
+            font-size:20px;
+        }
+        .meta-item .label {font-size:12px; color:#59708d;}
+        .meta-item .value {font-size:15px; color:#112244; font-weight:800; line-height:1.25; word-break:break-word;}
+
         .main-shell,
         .panel,
         .metric-card,
@@ -357,96 +482,6 @@ def inject_css():
             padding:18px 20px;
             height:100%;
         }
-
-        .app-header-card {
-            background:#ffffff;
-            border:1px solid #c9d8ea;
-            border-radius:26px;
-            overflow:hidden;
-            box-shadow:0 16px 34px rgba(7,26,61,0.12);
-            margin-bottom:18px;
-        }
-        .app-header-flag {
-            background:
-                linear-gradient(165deg, transparent 0 8%, var(--saffron) 8% 24%, #ffffff 24% 40%, var(--green) 40% 56%, transparent 56% 100%),
-                linear-gradient(90deg, #082655 0%, #0a2f67 100%);
-            padding:22px 26px;
-            display:grid;
-            grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
-            gap:20px;
-            align-items:center;
-        }
-        .flag-brand-wrap {
-            display:flex;
-            gap:16px;
-            align-items:center;
-        }
-        .flag-emblem {
-            min-width:74px;
-            width:74px;
-            height:74px;
-            border-radius:22px;
-            background: rgba(255,255,255,0.93);
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            color:#0b2a5d;
-            font-size:34px;
-            box-shadow: 0 12px 28px rgba(7,26,61,0.18);
-        }
-        .flag-brand-title {font-size:38px; line-height:1.02; font-weight:900; color:#ffffff; letter-spacing:-0.02em;}
-        .flag-brand-title .accent {color:#f6c354;}
-        .flag-brand-sub {font-size:17px; color:#edf4ff; margin-top:8px; max-width:720px; line-height:1.4;}
-        .flag-brand-note {font-size:13px; color:#d8e6fb; margin-top:6px;}
-        .header-right-wrap {
-            display:flex;
-            justify-content:flex-end;
-        }
-        .header-right-card {
-            display:flex;
-            align-items:center;
-            justify-content:flex-end;
-            gap:16px;
-            padding:14px 18px;
-            background: rgba(255,255,255,0.16);
-            border:1px solid rgba(255,255,255,0.16);
-            border-radius:20px;
-            min-width: 320px;
-            backdrop-filter: blur(4px);
-        }
-        .header-sthambh {
-            width:72px; height:72px; border-radius:18px;
-            background: rgba(255,255,255,0.94);
-            display:flex; align-items:center; justify-content:center;
-            font-size:42px; box-shadow:0 10px 22px rgba(7,26,61,0.16);
-        }
-        .header-right-copy {text-align:right;}
-        .header-right-copy .small {font-size:13px;color:#eef4ff;}
-        .header-right-copy .big {font-size:18px;font-weight:800;color:#ffffff; margin-top:2px;}
-        .header-meta-band {
-            background: linear-gradient(90deg, #edf3fb 0%, #e4eef9 40%, #d8e7f7 100%);
-            border-top:1px solid #d2e0ef;
-            padding:14px 22px;
-            display:grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap:14px;
-        }
-        .meta-item {
-            background:#ffffff;
-            border:1px solid #d7e2ef;
-            border-radius:16px;
-            padding:12px 14px;
-            display:flex;
-            gap:12px;
-            align-items:center;
-            min-height:66px;
-        }
-        .meta-icon {
-            width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center;
-            background:#eef4ff; font-size:20px;
-        }
-        .meta-item .label {font-size:12px; color:#59708d;}
-        .meta-item .value {font-size:16px; color:#112244; font-weight:800; line-height:1.25;}
 
         .content-pad {padding:28px; position:relative;}
         .watermark {
@@ -516,8 +551,8 @@ def inject_css():
         }
 
         @media (max-width: 1200px) {
-            .app-header-flag {grid-template-columns: 1fr;}
-            .header-right-wrap {justify-content:flex-start;}
+            .app-header-top {grid-template-columns: 1fr;}
+            .header-user-card {justify-self:stretch; max-width:none;}
             .header-meta-band {grid-template-columns: repeat(2, minmax(0, 1fr));}
             section[data-testid="stSidebar"] {
                 min-width: 300px !important;
@@ -526,11 +561,9 @@ def inject_css():
             }
         }
         @media (max-width: 768px) {
-            .flag-brand-title {font-size:28px;}
-            .flag-brand-sub {font-size:15px;}
+            .header-title {font-size:30px;}
+            .header-subtitle {font-size:15px;}
             .header-meta-band {grid-template-columns: 1fr;}
-            .header-right-card {min-width:100%; justify-content:flex-start;}
-            .header-right-copy {text-align:left;}
             .block-container {padding-top: 0.8rem;}
         }
     </style>
@@ -1059,26 +1092,32 @@ def safe_display_df(df: pd.DataFrame, limit: int = 1000) -> pd.DataFrame:
 def top_header():
     st.markdown(f"""
     <div class='app-header-card'>
-        <div class='app-header-flag'>
-            <div class='flag-brand-wrap'>
-                <div class='flag-emblem'>☸</div>
+        <div class='app-header-top'>
+            <div class='header-brand'>
+                <div class='header-logo'>⬢</div>
                 <div>
-                    <div class='flag-brand-title'>IMS Recon <span class='accent'>Pro</span></div>
-                    <div class='flag-brand-sub'>Intelligent GST IMS Reconciliation & Action Management Platform</div>
-                    <div class='flag-brand-note'>Built for India • Designed for Compliance • Powered by structured reconciliation workflow</div>
+                    <div class='header-title'>IMS Recon <span>Pro</span></div>
+                    <div class='header-subtitle'>Intelligent GST IMS Reconciliation & Action Management Platform</div>
+                    <div class='header-note'>Clean dashboard • Faster matching • Action-ready IMS workpaper</div>
                 </div>
             </div>
-            <div class='header-right-wrap'>
-                <div class='header-right-card'>
-                    <div class='header-sthambh'>🦁</div>
-                    <div class='header-right-copy'>
-                        <div class='small'>National compliance interface</div>
-                        <div class='big'>Indian Flag Theme • Ashoka Stambh Header</div>
-                        <div class='small'>GST IMS workflow dashboard</div>
+
+            <div class='header-user-card'>
+                <div class='user-card-row'>
+                    <div class='user-avatar'>👤</div>
+                    <div>
+                        <div class='user-small'>Welcome back</div>
+                        <div class='user-big'>{st.session_state.get("display_name", "User")}</div>
+                        <div class='user-small'>{st.session_state.get("role", "")}</div>
                     </div>
+                </div>
+                <div class='user-copy'>
+                    <div>Engine {ENGINE_VERSION}</div>
+                    <div>{COPYRIGHT_OWNER}</div>
                 </div>
             </div>
         </div>
+
         <div class='header-meta-band'>
             <div class='meta-item'>
                 <div class='meta-icon'>🗓️</div>
