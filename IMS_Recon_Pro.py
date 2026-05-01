@@ -5,7 +5,7 @@ import pickle
 from dataclasses import dataclass
 from datetime import datetime, date
 from io import BytesIO
-from copy import copy
+from copy import copy, deepcopy
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -196,6 +196,11 @@ def init_state():
         "ims_json_records": [],
         "ims_template_bytes": b"",
         "ims_auto_xlsm_bytes": b"",
+        "ims_json_data": {},
+        "ims_json_bytes": b"",
+        "final_action_xlsm_bytes": b"",
+        "final_json_bytes": b"",
+        "final_json_summary": pd.DataFrame(),
         "recon_df": pd.DataFrame(),
         "action_df": pd.DataFrame(),
         "amount_tolerance": 5.0,
@@ -213,7 +218,7 @@ def load_user_state():
         return
     for key in [
         "client_name", "client_gstin", "return_period",
-        "purchase_df", "ims_df", "ims_source", "ims_json_records", "ims_template_bytes", "ims_auto_xlsm_bytes", "recon_df", "action_df"
+        "purchase_df", "ims_df", "ims_source", "ims_json_records", "ims_template_bytes", "ims_auto_xlsm_bytes", "ims_json_data", "ims_json_bytes", "final_action_xlsm_bytes", "final_json_bytes", "final_json_summary", "recon_df", "action_df"
     ]:
         st.session_state[key] = db_load(username, key, st.session_state.get(key))
 
@@ -224,7 +229,7 @@ def save_user_state(keys: Optional[List[str]] = None):
         return
     keys = keys or [
         "client_name", "client_gstin", "return_period",
-        "purchase_df", "ims_df", "ims_source", "ims_json_records", "ims_template_bytes", "ims_auto_xlsm_bytes", "recon_df", "action_df"
+        "purchase_df", "ims_df", "ims_source", "ims_json_records", "ims_template_bytes", "ims_auto_xlsm_bytes", "ims_json_data", "ims_json_bytes", "final_action_xlsm_bytes", "final_json_bytes", "final_json_summary", "recon_df", "action_df"
     ]
     for key in keys:
         db_save(username, key, st.session_state.get(key))
@@ -1054,6 +1059,148 @@ def populate_ims_utility_xlsm(template_bytes: bytes, records: List[dict], recon:
     return buffer.getvalue()
 
 
+def normalize_action_label(value) -> str:
+    """Convert IMS Utility status/dropdown value into one of Accepted/Pending/Rejected/No Action."""
+    text = str(value or "").strip().lower()
+    if text in ["a", "accept", "accepted"]:
+        return "Accepted"
+    if text in ["p", "pending"]:
+        return "Pending"
+    if text in ["r", "reject", "rejected"]:
+        return "Rejected"
+    if text in ["n", "no", "no action", "noaction", "na", ""]:
+        return "No Action"
+    if "accept" in text:
+        return "Accepted"
+    if "pend" in text or "review" in text:
+        return "Pending"
+    if "reject" in text:
+        return "Rejected"
+    return "Pending"
+
+
+def action_label_to_gst_code(action: str) -> str:
+    """GST IMS JSON action code expected by portal: A/P/R/N."""
+    label = normalize_action_label(action)
+    return {"Accepted": "A", "Pending": "P", "Rejected": "R", "No Action": "N"}.get(label, "P")
+
+
+def utility_sheet_config() -> Dict[str, dict]:
+    return {
+        "B2B": {"start": 7, "gstin_col": 1, "doc_col": 3, "status_col": 7},
+        "B2B-DN": {"start": 7, "gstin_col": 1, "doc_col": 3, "status_col": 7},
+        "B2B-CN": {"start": 7, "gstin_col": 1, "doc_col": 3, "status_col": 7},
+        "B2BA": {"start": 8, "gstin_col": 3, "doc_col": 5, "status_col": 9},
+        "B2B-DNA": {"start": 8, "gstin_col": 3, "doc_col": 5, "status_col": 9},
+        "B2B-CNA": {"start": 8, "gstin_col": 3, "doc_col": 5, "status_col": 9},
+    }
+
+
+def read_action_status_from_utility_xlsm(xlsm_bytes: bytes) -> Tuple[dict, pd.DataFrame]:
+    """Read final action/status selected by user from IMS Offline Utility .xlsm."""
+    if not xlsm_bytes:
+        raise ValueError("Please upload the final/edited IMS Utility .xlsm file first.")
+    wb = load_workbook(BytesIO(xlsm_bytes), keep_vba=True, data_only=False)
+    action_map = {}
+    rows = []
+
+    for sheet_name, cfg in utility_sheet_config().items():
+        if sheet_name not in wb.sheetnames:
+            continue
+        ws = wb[sheet_name]
+        blank_streak = 0
+        for r in range(cfg["start"], ws.max_row + 1):
+            gstin = normalize_gstin(ws.cell(r, cfg["gstin_col"]).value)
+            doc_no_raw = ws.cell(r, cfg["doc_col"]).value
+            doc_norm = normalize_doc_no(doc_no_raw)
+            status_raw = ws.cell(r, cfg["status_col"]).value
+            status = normalize_action_label(status_raw)
+
+            if not gstin and not doc_norm:
+                blank_streak += 1
+                if blank_streak >= 25:
+                    break
+                continue
+            blank_streak = 0
+            if not doc_norm:
+                continue
+
+            action_map[(sheet_name, gstin, doc_norm)] = status
+            action_map[(gstin, doc_norm)] = status
+            rows.append({
+                "Sheet": sheet_name,
+                "Supplier GSTIN": gstin,
+                "Document No": doc_no_raw,
+                "Normalized Document No": doc_norm,
+                "Utility Status": status,
+                "GST JSON Action Code": action_label_to_gst_code(status),
+            })
+
+    summary = pd.DataFrame(rows)
+    return action_map, summary
+
+
+def get_json_section_map() -> dict:
+    return {
+        "b2b": "B2B", "b2ba": "B2BA", "b2bdn": "B2B-DN", "b2bdna": "B2B-DNA",
+        "b2bcn": "B2B-CN", "b2bcna": "B2B-CNA", "cdnr": "B2B-CN", "cdnra": "B2B-CNA",
+        "dn": "B2B-DN", "dna": "B2B-DNA", "cn": "B2B-CN", "cna": "B2B-CNA",
+        "eco": "ECO", "ecoa": "ECOA"
+    }
+
+
+def update_ims_json_actions_from_utility(original_json: dict, action_map: dict) -> Tuple[dict, pd.DataFrame]:
+    """Preserve GST portal JSON structure and update only action field based on utility status."""
+    if not isinstance(original_json, dict) or not original_json:
+        raise ValueError("Original IMS JSON is not available. Please process IMS JSON first.")
+    if not action_map:
+        raise ValueError("No status/action found in the uploaded IMS Utility .xlsm.")
+
+    data = deepcopy(original_json)
+    section_map = get_json_section_map()
+    updated_rows = []
+
+    def walk(obj):
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                normalized_key = str(k).lower().replace("_", "").replace("-", "")
+                if normalized_key in section_map and isinstance(v, list):
+                    section = section_map[normalized_key]
+                    for item in v:
+                        if not isinstance(item, dict):
+                            continue
+                        gstin = normalize_gstin(get_json_value(item, "stin", "ctin", "supplier_gstin"))
+                        doc_no = get_json_value(item, "inum", "nt_num", "document_no", "oinum")
+                        doc_norm = normalize_doc_no(doc_no)
+                        status = action_map.get((section, gstin, doc_norm)) or action_map.get((gstin, doc_norm))
+                        if status:
+                            item["action"] = action_label_to_gst_code(status)
+                            if "remarks" in item and not str(item.get("remarks") or "").strip():
+                                item["remarks"] = f"Auto {status} by IMS Recon Pro"
+                            updated_rows.append({
+                                "Sheet": section,
+                                "Supplier GSTIN": gstin,
+                                "Document No": doc_no,
+                                "Utility Status": status,
+                                "GST JSON Action Code": item.get("action", ""),
+                            })
+                else:
+                    walk(v)
+        elif isinstance(obj, list):
+            for item in obj:
+                walk(item)
+
+    walk(data)
+    return data, pd.DataFrame(updated_rows)
+
+
+def generate_gst_upload_json_bytes(original_json: dict, final_xlsm_bytes: bytes) -> Tuple[bytes, pd.DataFrame, pd.DataFrame]:
+    action_map, utility_status_df = read_action_status_from_utility_xlsm(final_xlsm_bytes)
+    updated_json, updated_summary = update_ims_json_actions_from_utility(original_json, action_map)
+    json_bytes = json.dumps(updated_json, ensure_ascii=False, indent=2).encode("utf-8")
+    return json_bytes, utility_status_df, updated_summary
+
+
 def aggregate(df: pd.DataFrame, label: str) -> pd.DataFrame:
     if df is None or df.empty:
         return pd.DataFrame()
@@ -1582,9 +1729,13 @@ def upload_center_page():
                 st.session_state.ims_df = df
                 st.session_state.ims_source = "IMS JSON"
                 st.session_state.ims_json_records = records
+                st.session_state.ims_json_data = data
+                st.session_state.ims_json_bytes = raw_bytes
+                st.session_state.final_json_bytes = b""
+                st.session_state.final_json_summary = pd.DataFrame()
                 if isinstance(data, dict) and data.get("rtin"):
                     st.session_state.client_gstin = normalize_gstin(data.get("rtin"))
-                save_user_state(["ims_df", "ims_source", "ims_json_records", "client_gstin"])
+                save_user_state(["ims_df", "ims_source", "ims_json_records", "ims_json_data", "ims_json_bytes", "final_json_bytes", "final_json_summary", "client_gstin"])
                 log_event("Upload", f"IMS JSON uploaded: {len(df):,} rows")
                 st.success(f"IMS JSON processed: {len(df):,} rows.")
             except Exception as e:
@@ -1667,6 +1818,54 @@ def upload_center_page():
             mime="application/vnd.ms-excel.sheet.macroEnabled.12",
             use_container_width=True,
         )
+
+    st.markdown("---")
+    st.markdown("### Step 3 — Generate GST Portal Upload JSON from final IMS Utility status")
+    st.info("After checking/changing the Status column in the generated .xlsm utility, upload that final .xlsm here. The app will read the Status column and regenerate JSON with action codes for GST portal upload: Accepted=A, Pending=P, Rejected=R, No Action=N.")
+
+    j1, j2 = st.columns([1.35, 1])
+    with j1:
+        final_util = st.file_uploader("Upload final/edited IMS Utility with Status actions (.xlsm)", type=["xlsm"], key="final_action_utility_upload")
+        if final_util and st.button("🧾 Read Status Column & Generate GST Upload JSON", type="primary", use_container_width=True):
+            try:
+                st.session_state.final_action_xlsm_bytes = final_util.getvalue()
+                if not st.session_state.ims_json_data:
+                    raise ValueError("Please process the original IMS JSON first, because the final upload JSON must preserve the same GST portal structure.")
+                json_bytes, utility_status_df, updated_summary = generate_gst_upload_json_bytes(
+                    st.session_state.ims_json_data,
+                    st.session_state.final_action_xlsm_bytes,
+                )
+                st.session_state.final_json_bytes = json_bytes
+                st.session_state.final_json_summary = updated_summary
+                save_user_state(["final_action_xlsm_bytes", "final_json_bytes", "final_json_summary"])
+                log_event("GST JSON", f"Final GST upload JSON generated: {len(updated_summary):,} records updated")
+                st.success(f"GST upload JSON generated successfully. Updated records: {len(updated_summary):,}")
+                if not utility_status_df.empty:
+                    st.markdown("#### Status read from utility")
+                    show_df(utility_status_df.groupby(["Sheet", "Utility Status", "GST JSON Action Code"], dropna=False).size().reset_index(name="Records"), 100)
+            except Exception as e:
+                st.error(f"Unable to generate GST upload JSON: {e}")
+
+    with j2:
+        st.markdown("<div class='panel'><div class='panel-title'>Final JSON Action Mapping</div>", unsafe_allow_html=True)
+        st.write("Accepted → A")
+        st.write("Pending → P")
+        st.write("Rejected → R")
+        st.write("No Action → N")
+        st.caption("This keeps the original JSON format and updates only the action values based on the utility Status column.")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    if st.session_state.final_json_bytes:
+        st.download_button(
+            "⬇️ Download Final GST Portal Upload JSON",
+            data=st.session_state.final_json_bytes,
+            file_name=f"IMS_Final_Action_Upload_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
+            mime="application/json",
+            use_container_width=True,
+        )
+        if isinstance(st.session_state.final_json_summary, pd.DataFrame) and not st.session_state.final_json_summary.empty:
+            st.markdown("#### Final JSON Update Summary")
+            show_df(st.session_state.final_json_summary.groupby(["Sheet", "Utility Status", "GST JSON Action Code"], dropna=False).size().reset_index(name="Records"), 100)
 
     st.markdown("---")
     page_title("Data Health Check", "Upload status and quality summary.")
