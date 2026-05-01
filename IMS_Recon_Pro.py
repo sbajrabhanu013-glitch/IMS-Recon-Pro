@@ -232,237 +232,203 @@ def inject_css():
     st.markdown("""
     <style>
         :root {
-            --navy:#071a3d;
-            --navy2:#0d2d63;
-            --light-navy:#d9e6f7;
-            --panel:#f7fbff;
-            --card:#ffffff;
-            --border:#cbd9ea;
-            --text:#112244;
-            --muted:#5c6b85;
-            --gold:#d89a3f;
-            --red:#e1563a;
-            --orange:#f4a62a;
-            --blue:#4d8df7;
-            --purple:#8b6cf7;
+            --gst-dark:#102965;
+            --gst-darker:#071b4a;
+            --gst-nav:#2f578f;
+            --gst-nav-active:#21c7bc;
+            --page-bg:#dbe8f7;
+            --panel:#ffffff;
+            --panel-soft:#f4f8fd;
+            --border:#c7d8ec;
+            --text:#0c2148;
+            --muted:#536986;
+            --gold:#f0b429;
+            --blue:#1f6fd1;
+            --green:#138808;
+            --red:#d94332;
         }
 
         .stApp {
             background:
-                radial-gradient(circle at top left, rgba(13,45,99,0.12), transparent 28%),
-                radial-gradient(circle at bottom right, rgba(77,141,247,0.12), transparent 30%),
-                linear-gradient(180deg, #d8e6f7 0%, #c9d9ee 45%, #dce8f7 100%);
+                linear-gradient(180deg, #e7f0fb 0%, #d6e5f5 38%, #cfe1f3 100%) !important;
         }
 
         header[data-testid="stHeader"] {
             visibility: visible !important;
             height: auto !important;
-            background: rgba(218, 231, 247, 0.94) !important;
+            background: rgba(219,232,247,0.92) !important;
             backdrop-filter: blur(8px);
-            border-bottom: 1px solid rgba(7,26,61,0.10);
+            border-bottom:1px solid rgba(7,27,74,0.08);
         }
         div[data-testid="stToolbar"] { visibility:hidden; height:0; }
 
         .block-container {
             padding-top: 1rem;
             padding-bottom: 1.5rem;
-            max-width: 1480px;
+            max-width: 1260px;
         }
 
-        section[data-testid="stSidebar"] {
-            min-width: 330px !important;
-            width: 330px !important;
-            max-width: 330px !important;
-            background: linear-gradient(180deg, #02132f 0%, #06214b 52%, #031329 100%);
-            border-right: 1px solid rgba(255,255,255,0.10);
-            box-shadow: 10px 0 28px rgba(0,0,0,0.22);
-        }
-        section[data-testid="stSidebar"] * { color: #eef4ff; }
-        [data-testid="stSidebarCollapseButton"] svg,
-        [data-testid="collapsedControl"] svg { width: 1.35rem !important; height: 1.35rem !important; }
-        [data-testid="collapsedControl"] {
-            background: rgba(7,26,61,0.82) !important;
-            border-radius: 12px !important;
-            padding: 0.35rem !important;
-        }
-
-        .sidebar-logo {
-            display:flex;
-            align-items:center;
-            gap:14px;
-            padding:10px 4px 20px 4px;
-            margin-bottom:12px;
-            border-bottom:1px solid rgba(255,255,255,0.09);
-        }
-        .logo-mark {
-            width:58px;
-            height:58px;
-            border-radius:18px;
-            background: linear-gradient(135deg,#ffcf63 0%, #f59e0b 38%, #138808 100%);
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            color:white;
-            font-size:28px;
-            font-weight:800;
-            box-shadow:0 12px 24px rgba(245,158,11,0.25);
-        }
-        .sidebar-caption {font-size:14px;color:#c8d7ef;margin-top:4px;}
-        .status-box {
-            margin-top:20px;
-            padding:18px;
-            border-radius:18px;
-            background:linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.04));
-            border:1px solid rgba(255,255,255,0.12);
-        }
-
-        section[data-testid="stSidebar"] .stButton > button {
-            width:100%;
-            border-radius:18px;
-            min-height:56px;
-            margin:6px 0;
-            border:1px solid rgba(255,255,255,0.09);
-            background: rgba(255,255,255,0.08);
-            color:#ffffff;
-            font-size:16px;
-            font-weight:700;
-            text-align:left;
-            padding:0.8rem 1rem;
-            box-shadow:none;
-        }
-        section[data-testid="stSidebar"] .stButton > button:hover {
-            border-color: rgba(255,153,51,0.62);
-            background: linear-gradient(90deg, rgba(255,153,51,0.18), rgba(255,255,255,0.08));
-            color:#ffffff;
-        }
-
-        .app-header-card {
-            background:#ffffff;
-            border:1px solid #c9d8ea;
-            border-radius:24px;
+        .gst-shell {
+            border-radius: 0 0 22px 22px;
             overflow:hidden;
-            box-shadow:0 16px 34px rgba(7,26,61,0.12);
-            margin-bottom:20px;
+            box-shadow:0 14px 34px rgba(7,27,74,0.16);
+            border:1px solid rgba(255,255,255,0.45);
+            margin-bottom:18px;
+            background:#ffffff;
         }
-        .app-header-top {
-            background: linear-gradient(135deg, #071a3d 0%, #0b2d64 48%, #0d3b78 100%);
-            padding:24px 28px;
-            display:grid;
-            grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.85fr);
-            gap:22px;
-            align-items:center;
-            min-height:150px;
-        }
-        .header-brand {
+        .gst-top-strip {
+            background:#071b4a;
+            color:#ffffff;
+            min-height:28px;
             display:flex;
+            justify-content:flex-end;
             align-items:center;
             gap:18px;
+            padding:4px 18px;
+            font-size:13px;
+            font-weight:700;
+        }
+        .gst-masthead {
+            background: linear-gradient(90deg, #112965 0%, #0e2c68 58%, #12346f 100%);
+            color:white;
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:22px;
+            padding:22px 30px;
+            min-height:118px;
+        }
+        .gst-brand {
+            display:flex;
+            align-items:center;
+            gap:20px;
             min-width:0;
         }
-        .header-logo {
-            min-width:76px;
-            width:76px;
-            height:76px;
-            border-radius:24px;
-            background: linear-gradient(135deg, #ffffff 0%, #eef5ff 100%);
+        .gst-emblem {
+            width:72px;
+            height:72px;
+            border-radius:10px;
             display:flex;
             align-items:center;
             justify-content:center;
-            color:#0b2a5d;
-            font-size:34px;
-            font-weight:900;
-            box-shadow: 0 12px 28px rgba(0,0,0,0.18);
-        }
-        .header-title {
-            font-size:40px;
-            line-height:1.05;
-            font-weight:900;
             color:#ffffff;
-            letter-spacing:-0.02em;
-            margin:0;
-        }
-        .header-title span { color:#f6c354; }
-        .header-subtitle {
-            color:#dbe8ff;
-            font-size:17px;
-            margin-top:9px;
-            line-height:1.45;
-            max-width:760px;
-        }
-        .header-note {
-            color:#bfd1ee;
-            font-size:13px;
-            margin-top:7px;
-        }
-        .header-user-card {
-            justify-self:end;
-            width:100%;
-            max-width:420px;
-            background: rgba(255,255,255,0.10);
+            font-size:44px;
+            background:rgba(255,255,255,0.08);
             border:1px solid rgba(255,255,255,0.16);
-            border-radius:22px;
-            padding:18px;
         }
-        .user-card-row {
-            display:flex;
-            align-items:center;
-            gap:14px;
+        .gst-title {
+            font-size:34px;
+            font-weight:500;
+            letter-spacing:.2px;
+            line-height:1.08;
+            color:#ffffff;
         }
-        .user-avatar {
-            min-width:58px;
-            width:58px;
-            height:58px;
-            border-radius:18px;
-            background:#eef5ff;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            font-size:27px;
+        .gst-subtitle {
+            margin-top:8px;
+            font-size:20px;
+            line-height:1.25;
+            color:#ffffff;
+            font-weight:400;
         }
-        .user-small {font-size:13px;color:#dbe8ff;}
-        .user-big {font-size:19px;font-weight:850;color:#ffffff;margin-top:2px;line-height:1.25;}
-        .user-copy {
-            margin-top:12px;
-            padding-top:12px;
-            border-top:1px solid rgba(255,255,255,0.14);
+        .gst-action-wrap {
             display:flex;
-            justify-content:space-between;
             gap:12px;
-            color:#dbe8ff;
-            font-size:13px;
+            align-items:center;
+            justify-content:flex-end;
+            flex-wrap:wrap;
         }
-        .header-meta-band {
-            background: linear-gradient(90deg, #edf3fb 0%, #e4eef9 45%, #d8e7f7 100%);
-            border-top:1px solid #d2e0ef;
-            padding:16px 22px;
+        .gst-login-btn {
+            min-width:102px;
+            text-align:center;
+            background:#ffffff;
+            color:#102965;
+            border:1px solid rgba(255,255,255,0.6);
+            border-radius:4px;
+            padding:10px 16px;
+            font-size:14px;
+            font-weight:800;
+            letter-spacing:.3px;
+        }
+        .gst-meta-row {
+            background:#eef5ff;
+            border-top:1px solid #c6d6eb;
+            padding:14px 18px;
             display:grid;
             grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap:14px;
-        }
-        .meta-item {
-            background:#ffffff;
-            border:1px solid #d7e2ef;
-            border-radius:16px;
-            padding:12px 14px;
-            display:flex;
             gap:12px;
-            align-items:center;
-            min-height:70px;
-            overflow:hidden;
         }
-        .meta-icon {
-            min-width:42px;
-            width:42px;
-            height:42px;
-            border-radius:12px;
+        .gst-meta-card {
+            background:#ffffff;
+            border:1px solid #c7d8ec;
+            border-radius:10px;
+            min-height:62px;
+            padding:11px 14px;
+            display:flex;
+            align-items:center;
+            gap:12px;
+        }
+        .gst-meta-icon {
+            width:38px;
+            height:38px;
+            border-radius:8px;
+            background:#edf4ff;
             display:flex;
             align-items:center;
             justify-content:center;
-            background:#eef4ff;
-            font-size:20px;
+            font-size:18px;
+            flex-shrink:0;
         }
-        .meta-item .label {font-size:12px; color:#59708d;}
-        .meta-item .value {font-size:15px; color:#112244; font-weight:800; line-height:1.25; word-break:break-word;}
+        .gst-meta-label {
+            color:#5e7390;
+            font-size:12px;
+            margin-bottom:2px;
+        }
+        .gst-meta-value {
+            color:#071b4a;
+            font-weight:800;
+            font-size:15px;
+            line-height:1.25;
+            overflow-wrap:anywhere;
+        }
+
+        .gst-nav-title {
+            background:#2f578f;
+            color:#fff;
+            font-size:16px;
+            font-weight:800;
+            padding:12px 16px;
+            border-radius:12px 12px 0 0;
+            border:1px solid rgba(255,255,255,0.18);
+            border-bottom:0;
+        }
+        .gst-nav-panel {
+            background:#ffffff;
+            border:1px solid #b9cce4;
+            border-radius:0 0 14px 14px;
+            padding:12px;
+            margin-bottom:18px;
+            box-shadow:0 10px 22px rgba(7,27,74,0.08);
+        }
+
+        div[data-testid="stButton"] > button {
+            border-radius:6px;
+            border:1px solid #2e5a95;
+            background:#2f578f;
+            color:#ffffff;
+            min-height:46px;
+            font-weight:700;
+            box-shadow:none;
+        }
+        div[data-testid="stButton"] > button:hover {
+            background:#21c7bc;
+            color:#071b4a;
+            border-color:#21c7bc;
+        }
+        div[data-testid="stButton"] > button[kind="primary"] {
+            background:#102965;
+            color:#ffffff;
+            border-color:#102965;
+        }
 
         .main-shell,
         .panel,
@@ -470,101 +436,97 @@ def inject_css():
         .small-card {
             background:#ffffff;
             border:1px solid var(--border);
-            box-shadow:0 12px 30px rgba(16,34,68,.10);
+            box-shadow:0 12px 28px rgba(7,27,74,.10);
         }
         .main-shell {
-            border-radius:24px;
+            border-radius:16px;
             overflow:hidden;
             margin-bottom:18px;
         }
         .panel, .metric-card, .small-card {
-            border-radius:22px;
+            border-radius:14px;
             padding:18px 20px;
             height:100%;
         }
-
-        .content-pad {padding:28px; position:relative;}
+        .content-pad {padding:26px; position:relative;}
         .watermark {
             position:absolute; left:50%; top:46%; transform:translate(-50%,-50%);
-            font-size:210px; color:rgba(14,41,90,.035); pointer-events:none;
+            font-size:190px; color:rgba(14,41,90,.035); pointer-events:none;
         }
-        .headline {font-size:20px;color:#ff8e1a;font-weight:700;}
-        .main-title {font-size:28px;font-weight:800;color:#112244;line-height:1.25;margin-top:8px;}
+        .headline {font-size:20px;color:#0d4f9b;font-weight:800;}
+        .main-title {font-size:30px;font-weight:900;color:#071b4a;line-height:1.24;margin-top:8px;}
         .subcopy {font-size:16px;color:#52637d;margin-top:10px;line-height:1.5;}
         .cta-dark,.cta-light {
-            display:inline-block;padding:12px 22px;border-radius:14px;font-weight:700;text-decoration:none;font-size:15px;margin-right:10px;margin-top:18px;
+            display:inline-block;padding:12px 22px;border-radius:8px;font-weight:800;text-decoration:none;font-size:15px;margin-right:10px;margin-top:18px;
         }
-        .cta-dark {background:#0b2a5d;color:white;box-shadow:0 10px 18px rgba(11,42,93,.18);}
-        .cta-light {background:white;color:#0b2a5d;border:1px solid #d9e3f3;}
+        .cta-dark {background:#102965;color:white;box-shadow:0 10px 18px rgba(11,42,93,.18);}
+        .cta-light {background:white;color:#102965;border:1px solid #b9cce4;}
 
         .metric-top {display:flex;align-items:center;gap:14px;}
-        .metric-icon {width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;}
+        .metric-icon {width:54px;height:54px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;}
         .metric-label {font-size:14px;color:#59708d;}
-        .metric-value {font-size:32px;font-weight:800;color:#142748;line-height:1.15;}
-        .metric-delta {font-size:13px;color:#12a150;margin-top:6px;}
-        .metric-delta.red {color:#e1563a;}
-        .panel-title {font-size:18px;font-weight:800;color:#17294a;}
-        .feature-card {background:linear-gradient(180deg,#fffaf1,#fff7eb);border:1px solid #f0dfc0;border-radius:16px;padding:14px 16px;margin-bottom:12px;}
-        .feature-card.blue {background:linear-gradient(180deg,#f5f9ff,#eef5ff);border-color:#d6e4ff;}
-        .feature-card.green {background:linear-gradient(180deg,#f5fbf3,#eff9ec);border-color:#d8ead0;}
-        .feature-title {font-weight:700;color:#23385d;font-size:16px;}
+        .metric-value {font-size:32px;font-weight:900;color:#071b4a;line-height:1.15;}
+        .metric-delta {font-size:13px;color:#128047;margin-top:6px;}
+        .metric-delta.red {color:#d94332;}
+        .panel-title {font-size:18px;font-weight:900;color:#071b4a;}
+        .feature-card {background:#f7fbff;border:1px solid #c7d8ec;border-radius:12px;padding:14px 16px;margin-bottom:12px;}
+        .feature-card.blue {background:#f2f7ff;border-color:#c7d8ec;}
+        .feature-card.green {background:#f4fbf5;border-color:#cce5d1;}
+        .feature-title {font-weight:800;color:#0d2d63;font-size:16px;}
         .feature-desc {font-size:13px;color:#5f6f89;line-height:1.4;margin-top:4px;}
-        .shield-center {width:130px;height:130px;border-radius:50%;margin:0 auto 18px auto;background:radial-gradient(circle at 30% 30%,#fffef4,#f8f0d2 55%,#ead39f 100%);display:flex;align-items:center;justify-content:center;font-size:56px;box-shadow:inset 0 0 0 10px rgba(255,255,255,.65),0 10px 24px rgba(194,165,97,.16);}
-        .section-title {font-size:26px;font-weight:850;color:#112244;margin:8px 0 4px 0;}
+        .shield-center {width:130px;height:130px;border-radius:18px;margin:0 auto 18px auto;background:linear-gradient(135deg,#edf4ff,#ffffff);display:flex;align-items:center;justify-content:center;font-size:56px;box-shadow:0 10px 24px rgba(16,34,68,.12);border:1px solid #c7d8ec;}
+        .section-title {font-size:26px;font-weight:900;color:#071b4a;margin:8px 0 4px 0;}
         .section-sub {font-size:14px;color:#60748f;margin-bottom:18px;}
 
         .login-bg {
             min-height:calc(100vh - 40px); display:flex; align-items:center; justify-content:center;
-            background: radial-gradient(circle at 20% 10%, rgba(255,153,51,.18), transparent 30%),
-                        radial-gradient(circle at 85% 80%, rgba(19,136,8,.16), transparent 32%),
-                        linear-gradient(135deg,#071a3d,#0d2d63);
-            border-radius:28px; position:relative; overflow:hidden;
+            background:linear-gradient(135deg,#071b4a,#12346f);
+            border-radius:18px; position:relative; overflow:hidden;
         }
         .login-card {
-            width:460px; background:rgba(255,255,255,.96); border:1px solid rgba(255,255,255,.6);
-            border-radius:28px; padding:34px; box-shadow:0 30px 80px rgba(0,0,0,.28);
+            width:460px; background:rgba(255,255,255,.97); border:1px solid rgba(255,255,255,.7);
+            border-radius:16px; padding:34px; box-shadow:0 30px 80px rgba(0,0,0,.28);
         }
-        .login-title {font-size:34px;font-weight:900;color:#071a3d;text-align:center;}
+        .login-title {font-size:34px;font-weight:900;color:#071b4a;text-align:center;}
         .login-sub {font-size:15px;color:#566982;text-align:center;margin-bottom:22px;}
-        .copyright-float {position:fixed;right:18px;bottom:14px;color:rgba(7,26,61,.20);font-weight:900;letter-spacing:.08em;z-index:99;}
+        .copyright-float {display:none;}
 
         .footer-bar {
             margin-top:18px;
-            border-radius:22px;
-            background:linear-gradient(90deg,#061a3e 0%,#082b61 45%,#061a3e 100%);
+            border-radius:14px;
+            background:linear-gradient(90deg,#071b4a 0%,#102965 48%,#071b4a 100%);
             color:white;
             padding:18px 22px;
             box-shadow:0 12px 28px rgba(7,26,61,0.14);
         }
         .foot-item {display:flex;align-items:center;gap:10px;justify-content:center;}
-        .foot-main {font-weight:700;}
+        .foot-main {font-weight:800;}
         .foot-sub {font-size:13px;color:#d4e0ff;}
 
         .stTextInput input, .stNumberInput input, .stDateInput input, .stSelectbox div[data-baseweb="select"] > div {
-            border-radius:14px !important;
+            border-radius:8px !important;
         }
         .stForm {
             background:#f8fbff;
-            border:1px solid #d5e2f0;
-            border-radius:18px;
+            border:1px solid #c7d8ec;
+            border-radius:14px;
             padding:16px;
         }
 
-        @media (max-width: 1200px) {
-            .app-header-top {grid-template-columns: 1fr;}
-            .header-user-card {justify-self:stretch; max-width:none;}
-            .header-meta-band {grid-template-columns: repeat(2, minmax(0, 1fr));}
-            section[data-testid="stSidebar"] {
-                min-width: 300px !important;
-                width: 300px !important;
-                max-width: 300px !important;
-            }
+        @media (max-width: 1100px) {
+            .gst-masthead {flex-direction:column; align-items:flex-start;}
+            .gst-action-wrap {justify-content:flex-start;}
+            .gst-meta-row {grid-template-columns: repeat(2, minmax(0, 1fr));}
+            .gst-title {font-size:30px;}
+            .gst-subtitle {font-size:18px;}
         }
-        @media (max-width: 768px) {
-            .header-title {font-size:30px;}
-            .header-subtitle {font-size:15px;}
-            .header-meta-band {grid-template-columns: 1fr;}
-            .block-container {padding-top: 0.8rem;}
+        @media (max-width: 760px) {
+            .gst-brand {align-items:flex-start;}
+            .gst-emblem {width:58px;height:58px;font-size:34px;}
+            .gst-title {font-size:25px;}
+            .gst-subtitle {font-size:15px;}
+            .gst-meta-row {grid-template-columns: 1fr;}
+            .block-container {padding-top:0.7rem;}
         }
     </style>
     """, unsafe_allow_html=True)
@@ -1090,104 +1052,85 @@ def safe_display_df(df: pd.DataFrame, limit: int = 1000) -> pd.DataFrame:
 # =========================================================
 
 def top_header():
+    client_name = st.session_state.get("client_name", "") or "Not set"
+    client_gstin = st.session_state.get("client_gstin", "") or "GSTIN pending"
     st.markdown(f"""
-    <div class='app-header-card'>
-        <div class='app-header-top'>
-            <div class='header-brand'>
-                <div class='header-logo'>⬢</div>
+    <div class='gst-shell'>
+        <div class='gst-top-strip'>
+            <span>Skip to Main Content</span>
+            <span>◐</span>
+            <span>A+</span>
+            <span>A-</span>
+        </div>
+        <div class='gst-masthead'>
+            <div class='gst-brand'>
+                <div class='gst-emblem'>🦁</div>
                 <div>
-                    <div class='header-title'>IMS Recon <span>Pro</span></div>
-                    <div class='header-subtitle'>Intelligent GST IMS Reconciliation & Action Management Platform</div>
-                    <div class='header-note'>Clean dashboard • Faster matching • Action-ready IMS workpaper</div>
+                    <div class='gst-title'>Goods and Services Tax</div>
+                    <div class='gst-subtitle'>IMS Recon Pro — GST Reconciliation Platform</div>
+                    <div class='header-note'>Government-style compliance workspace for Purchase Register vs IMS reconciliation</div>
                 </div>
             </div>
-
-            <div class='header-user-card'>
-                <div class='user-card-row'>
-                    <div class='user-avatar'>👤</div>
-                    <div>
-                        <div class='user-small'>Welcome back</div>
-                        <div class='user-big'>{st.session_state.get("display_name", "User")}</div>
-                        <div class='user-small'>{st.session_state.get("role", "")}</div>
-                    </div>
-                </div>
-                <div class='user-copy'>
-                    <div>Engine {ENGINE_VERSION}</div>
-                    <div>{COPYRIGHT_OWNER}</div>
-                </div>
+            <div class='gst-action-wrap'>
+                <div class='gst-login-btn'>REGISTER</div>
+                <div class='gst-login-btn'>LOGIN</div>
             </div>
         </div>
-
-        <div class='header-meta-band'>
-            <div class='meta-item'>
-                <div class='meta-icon'>🗓️</div>
-                <div><div class='label'>Today</div><div class='value'>{datetime.today().strftime("%d %b %Y")} • {datetime.today().strftime("%A")}</div></div>
+        <div class='gst-meta-row'>
+            <div class='gst-meta-card'>
+                <div class='gst-meta-icon'>🗓️</div>
+                <div><div class='gst-meta-label'>Today</div><div class='gst-meta-value'>{datetime.today().strftime("%d %b %Y")} • {datetime.today().strftime("%A")}</div></div>
             </div>
-            <div class='meta-item'>
-                <div class='meta-icon'>👤</div>
-                <div><div class='label'>Logged in user</div><div class='value'>{st.session_state.get("display_name", "User")} ({st.session_state.get("role", "")})</div></div>
+            <div class='gst-meta-card'>
+                <div class='gst-meta-icon'>👤</div>
+                <div><div class='gst-meta-label'>Logged in user</div><div class='gst-meta-value'>{st.session_state.get("display_name", "User")} • {st.session_state.get("role", "")}</div></div>
             </div>
-            <div class='meta-item'>
-                <div class='meta-icon'>🏢</div>
-                <div><div class='label'>Client / GSTIN</div><div class='value'>{st.session_state.get("client_name", "Not set") or "Not set"} • {st.session_state.get("client_gstin", "GSTIN pending") or "GSTIN pending"}</div></div>
+            <div class='gst-meta-card'>
+                <div class='gst-meta-icon'>🏢</div>
+                <div><div class='gst-meta-label'>Client / GSTIN</div><div class='gst-meta-value'>{client_name} • {client_gstin}</div></div>
             </div>
-            <div class='meta-item'>
-                <div class='meta-icon'>©</div>
-                <div><div class='label'>Copyright</div><div class='value'>{COPYRIGHT_OWNER} • IMS Recon Pro</div></div>
+            <div class='gst-meta-card'>
+                <div class='gst-meta-icon'>©</div>
+                <div><div class='gst-meta-label'>Copyright</div><div class='gst-meta-value'>{COPYRIGHT_OWNER} • IMS Recon Pro</div></div>
             </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
 
-def sidebar():
-    with st.sidebar:
-        st.markdown("""
-        <div class='sidebar-logo'>
-            <div class='logo-mark'>✦</div>
-            <div>
-                <div style='font-size:28px;font-weight:900;letter-spacing:-0.4px;line-height:1.1;'>IMS Recon Pro</div>
-                <div class='sidebar-caption'>GST IMS Suite • Navigation Panel</div>
-            </div>
-        </div>
-        <div style='background:rgba(255,153,51,0.14);border:1px solid rgba(255,153,51,0.42);border-radius:18px;padding:12px 14px;margin:2px 0 16px 0;font-size:18px;font-weight:850;color:#fff;'>☰ MAIN MENU</div>
-        """, unsafe_allow_html=True)
-
-        pages = [
-            ("🏠", "Dashboard"),
-            ("🔐", "Client Setup"),
-            ("📤", "Upload Center"),
-            ("🧾", "IMS Data Viewer"),
-            ("🔄", "Reconciliation Workspace"),
-            ("✅", "Action Center"),
-            ("⚠️", "Risk Center"),
-            ("📨", "Vendor Follow-up"),
-            ("📊", "Reports & Export"),
-            ("🧠", "AI Insight Desk"),
-            ("👑", "Admin Panel"),
-        ]
-
-        for icon, page in pages:
-            label = f"{icon}  {page}"
-            if st.button(label, key=f"nav_{page}", use_container_width=True):
+def horizontal_nav():
+    pages = [
+        ("🏠", "Dashboard"),
+        ("🔐", "Client Setup"),
+        ("📤", "Upload Center"),
+        ("🧾", "IMS Data Viewer"),
+        ("🔄", "Reconciliation Workspace"),
+        ("✅", "Action Center"),
+        ("⚠️", "Risk Center"),
+        ("📨", "Vendor Follow-up"),
+        ("📊", "Reports & Export"),
+        ("🧠", "AI Insight Desk"),
+        ("👑", "Admin Panel"),
+    ]
+    st.markdown("<div class='gst-nav-title'>GST IMS Services</div>", unsafe_allow_html=True)
+    st.markdown("<div class='gst-nav-panel'>", unsafe_allow_html=True)
+    row1 = pages[:6]
+    row2 = pages[6:]
+    cols = st.columns(len(row1))
+    for col, (icon, page) in zip(cols, row1):
+        with col:
+            label = f"{icon} {page}"
+            if st.button(label, key=f"nav_top_{page}", use_container_width=True):
                 st.session_state.page = page
                 st.rerun()
-
-        st.markdown(f"""
-        <div class='status-box'>
-            <div style='font-size:18px;font-weight:800;'>System Status</div>
-            <div style='color:#8ef3a2;font-size:14px;margin-top:8px;'>● All Systems Operational</div>
-            <div style='font-size:13px;color:#d0def2;margin-top:12px;'>User ID: {st.session_state.get("username","")}</div>
-            <div style='font-size:13px;color:#d0def2;'>Role: {st.session_state.get("role","")}</div>
-            <div style='font-size:13px;color:#d0def2;'>Version: {ENGINE_VERSION}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if st.button("🚪 Logout", use_container_width=True):
-            log_event("Logout", "User logged out")
-            for k in list(st.session_state.keys()):
-                del st.session_state[k]
-            st.rerun()
+    cols = st.columns(len(row2))
+    for col, (icon, page) in zip(cols, row2):
+        with col:
+            label = f"{icon} {page}"
+            if st.button(label, key=f"nav_top_{page}", use_container_width=True):
+                st.session_state.page = page
+                st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def hero_dashboard():
@@ -1707,9 +1650,8 @@ def main():
         login_page()
         return
 
-    st.markdown(f"<div class='copyright-float'>{COPYRIGHT_OWNER}</div>", unsafe_allow_html=True)
-    sidebar()
     top_header()
+    horizontal_nav()
 
     page = st.session_state.page
     if page == "Dashboard":
