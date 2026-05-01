@@ -337,17 +337,57 @@ def inject_css():
             justify-content:flex-end;
             flex-wrap:wrap;
         }
-        .gst-login-btn {
-            min-width:102px;
-            text-align:center;
-            background:#ffffff;
-            color:#102965;
-            border:1px solid rgba(255,255,255,0.6);
-            border-radius:4px;
-            padding:10px 16px;
-            font-size:14px;
-            font-weight:800;
-            letter-spacing:.3px;
+        .gst-flag-wrap {
+            display:flex;
+            align-items:center;
+            justify-content:flex-end;
+        }
+        .gst-floating-flag {
+            width:170px;
+            height:106px;
+            border-radius:10px;
+            position:relative;
+            overflow:hidden;
+            background:
+                linear-gradient(to bottom, #ff9933 0 33.33%, #ffffff 33.33% 66.66%, #138808 66.66% 100%);
+            border:1px solid rgba(255,255,255,0.45);
+            box-shadow:0 12px 26px rgba(0,0,0,0.22);
+            animation: gstFlagFloat 3.6s ease-in-out infinite;
+        }
+        .gst-floating-flag::before {
+            content:"";
+            position:absolute;
+            inset:0;
+            background: linear-gradient(100deg, rgba(255,255,255,0.18) 10%, rgba(255,255,255,0.04) 28%, rgba(0,0,0,0.08) 52%, rgba(255,255,255,0.04) 76%, rgba(255,255,255,0.18) 100%);
+            background-size: 180% 100%;
+            animation: gstFlagWave 4.4s linear infinite;
+        }
+        .gst-floating-flag::after {
+            content:"☸";
+            position:absolute;
+            left:50%;
+            top:50%;
+            transform:translate(-50%, -50%);
+            color:#0a3d91;
+            font-size:30px;
+            font-weight:700;
+            z-index:2;
+        }
+        .gst-flag-pole {
+            width:8px;
+            height:120px;
+            border-radius:8px;
+            background: linear-gradient(180deg, #d8dce2, #96a3b8);
+            margin-right:10px;
+            box-shadow: inset 0 0 3px rgba(0,0,0,0.2);
+        }
+        @keyframes gstFlagFloat {
+            0%,100% { transform: translateY(0px); }
+            50% { transform: translateY(-4px); }
+        }
+        @keyframes gstFlagWave {
+            0% { background-position: 160% 0; }
+            100% { background-position: -40% 0; }
         }
         .gst-meta-row {
             background:#eef5ff;
@@ -1072,8 +1112,10 @@ def top_header():
                 </div>
             </div>
             <div class='gst-action-wrap'>
-                <div class='gst-login-btn'>REGISTER</div>
-                <div class='gst-login-btn'>LOGIN</div>
+                <div class='gst-flag-wrap'>
+                    <div class='gst-flag-pole'></div>
+                    <div class='gst-floating-flag' title='Indian Flag'></div>
+                </div>
             </div>
         </div>
         <div class='gst-meta-row'>
