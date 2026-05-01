@@ -241,7 +241,7 @@ def inject_css():
             background:
                 radial-gradient(circle at top left, rgba(255,153,51,0.18), transparent 28%),
                 radial-gradient(circle at bottom right, rgba(19,136,8,0.14), transparent 30%),
-                linear-gradient(180deg, #dbeafe 0%, #c9d9ef 48%, #e8f1fb 100%);
+                linear-gradient(180deg, #c8d9f0 0%, #b9cde8 48%, #d7e6f7 100%);
         }
         header[data-testid="stHeader"] {
             visibility: visible !important;
@@ -253,15 +253,23 @@ def inject_css():
         div[data-testid="stToolbar"] { visibility:hidden; height:0; }
         .block-container {padding-top:1.25rem; padding-bottom:1.5rem; max-width:1540px;}
         section[data-testid="stSidebar"] {
-            min-width: 330px !important;
-            width: 330px !important;
-            background: linear-gradient(180deg, #03122d 0%, #062451 52%, #020817 100%);
-            border-right: 2px solid rgba(255,255,255,0.16);
-            box-shadow: 10px 0 34px rgba(0,0,0,0.24);
+            min-width: 360px !important;
+            width: 360px !important;
+            max-width: 360px !important;
+            transform: translateX(0px) !important;
+            visibility: visible !important;
+            display: block !important;
+            opacity: 1 !important;
+            background: linear-gradient(180deg, #020a1f 0%, #041a3d 48%, #061f4a 100%) !important;
+            border-right: 3px solid rgba(255,255,255,0.20) !important;
+            box-shadow: 14px 0 42px rgba(0,0,0,0.34) !important;
+            z-index: 999999 !important;
         }
         section[data-testid="stSidebar"] > div {
-            min-width: 330px !important;
-            width: 330px !important;
+            min-width: 360px !important;
+            width: 360px !important;
+            max-width: 360px !important;
+            background: transparent !important;
         }
         section[data-testid="stSidebar"] * { color: #f4f7fb; }
         button[kind="header"], button[data-testid="baseButton-header"] {
@@ -395,6 +403,57 @@ def inject_css():
         .footer-bar {margin-top:16px;border-radius:22px;background:linear-gradient(90deg,#061a3e 0%,#082b61 45%,#061a3e 100%);color:white;padding:18px 22px;}
         .foot-item {display:flex;align-items:center;gap:10px;justify-content:center;}
         .foot-main {font-weight:700;} .foot-sub {font-size:13px;color:#d4e0ff;}
+
+        /* =====================================================
+           FORCE SIDEBAR VISIBLE - fixes collapsed/thin sidebar
+           ===================================================== */
+        div[data-testid="stSidebarCollapsedControl"],
+        button[data-testid="collapsedControl"],
+        [data-testid="collapsedControl"] {
+            display: none !important;
+            visibility: hidden !important;
+        }
+        [data-testid="stSidebar"] {
+            position: fixed !important;
+            left: 0 !important;
+            top: 0 !important;
+            bottom: 0 !important;
+            height: 100vh !important;
+            overflow-y: auto !important;
+            transform: translateX(0px) !important;
+        }
+        [data-testid="stSidebar"] + div,
+        [data-testid="stAppViewContainer"] {
+            margin-left: 360px !important;
+            width: calc(100% - 360px) !important;
+        }
+        .main .block-container {
+            max-width: 1280px !important;
+            padding-left: 2rem !important;
+            padding-right: 2rem !important;
+        }
+        section[data-testid="stSidebar"] .stButton > button p {
+            font-size: 18px !important;
+            font-weight: 800 !important;
+            white-space: nowrap !important;
+        }
+        section[data-testid="stSidebar"] .stButton > button {
+            width: 100% !important;
+            min-height: 58px !important;
+            margin-bottom: 8px !important;
+        }
+        @media (max-width: 900px) {
+            [data-testid="stSidebar"] {
+                width: 300px !important;
+                min-width: 300px !important;
+                max-width: 300px !important;
+            }
+            [data-testid="stSidebar"] + div,
+            [data-testid="stAppViewContainer"] {
+                margin-left: 300px !important;
+                width: calc(100% - 300px) !important;
+            }
+        }
     </style>
     """, unsafe_allow_html=True)
 
