@@ -5,11 +5,14 @@ import pickle
 from dataclasses import dataclass
 from datetime import datetime, date
 from io import BytesIO
+from copy import copy
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 import streamlit as st
+from openpyxl import load_workbook
+from openpyxl.styles import PatternFill, Font
 
 
 # =========================================================
@@ -37,11 +40,11 @@ TAX_COLS = ["igst", "cgst", "sgst", "cess"]
 
 COLUMN_ALIASES = {
     "supplier_gstin": [
-        "supplier gstin", "gstin of supplier", "gstin", "ctin", "counterparty gstin",
+        "supplier gstin", "gstin of supplier", "gstin", "ctin", "stin", "counterparty gstin",
         "vendor gstin", "party gstin", "gstin/uın of supplier", "gstin/uin of supplier"
     ],
     "supplier_name": [
-        "supplier name", "trade/legal name", "trade legal name", "legal name",
+        "supplier name", "trade/legal name", "trade legal name", "tradenm", "legal name",
         "vendor name", "party name", "name", "supplier legal name"
     ],
     "document_type": [
@@ -49,29 +52,29 @@ COLUMN_ALIASES = {
         "nature of document", "note type"
     ],
     "document_no": [
-        "document number", "document no", "doc no", "invoice number", "invoice no",
+        "document number", "document no", "doc no", "invoice number", "invoice no", "inum", "nt_num",
         "invoice", "note number", "note no", "bill number", "voucher number"
     ],
     "document_date": [
-        "document date", "doc date", "invoice date", "date", "note date", "bill date"
+        "document date", "doc date", "invoice date", "idt", "nt_dt", "date", "note date", "bill date"
     ],
     "invoice_value": [
-        "invoice value", "document value", "total invoice value", "gross value",
+        "invoice value", "document value", "val", "total invoice value", "gross value",
         "total value", "invoice value(inr)", "invoice value(rs)", "total document value"
     ],
     "taxable_value": [
-        "taxable value", "taxable amount", "taxable value(inr)", "taxable value(rs)",
+        "taxable value", "txval", "taxable amount", "taxable value(inr)", "taxable value(rs)",
         "assessable value", "net value", "taxable val"
     ],
-    "igst": ["igst", "integrated tax", "integrated tax amount", "igst amount"],
-    "cgst": ["cgst", "central tax", "central tax amount", "cgst amount"],
-    "sgst": ["sgst", "state tax", "state/ut tax", "utgst", "sgst amount"],
+    "igst": ["igst", "iamt", "integrated tax", "integrated tax amount", "igst amount"],
+    "cgst": ["cgst", "camt", "central tax", "central tax amount", "cgst amount"],
+    "sgst": ["sgst", "samt", "state tax", "state/ut tax", "utgst", "sgst amount"],
     "cess": ["cess", "cess amount"],
     "itc_available": ["itc available", "itc availability", "eligible itc", "itc eligibility", "eligible"],
     "ims_status": ["status", "ims status", "recipient status", "recipient action", "action"],
     "remarks": ["remarks", "remark", "reason", "comments", "comment"],
     "pos": ["place of supply", "pos", "state", "supply state"],
-    "return_period": ["return period", "tax period", "period", "month"],
+    "return_period": ["return period", "rtnprd", "tax period", "period", "month"],
 }
 
 
@@ -190,6 +193,9 @@ def init_state():
         "purchase_df": pd.DataFrame(),
         "ims_df": pd.DataFrame(),
         "ims_source": "",
+        "ims_json_records": [],
+        "ims_template_bytes": b"",
+        "ims_auto_xlsm_bytes": b"",
         "recon_df": pd.DataFrame(),
         "action_df": pd.DataFrame(),
         "amount_tolerance": 5.0,
@@ -207,7 +213,7 @@ def load_user_state():
         return
     for key in [
         "client_name", "client_gstin", "return_period",
-        "purchase_df", "ims_df", "ims_source", "recon_df", "action_df"
+        "purchase_df", "ims_df", "ims_source", "ims_json_records", "ims_template_bytes", "ims_auto_xlsm_bytes", "recon_df", "action_df"
     ]:
         st.session_state[key] = db_load(username, key, st.session_state.get(key))
 
@@ -218,7 +224,7 @@ def save_user_state(keys: Optional[List[str]] = None):
         return
     keys = keys or [
         "client_name", "client_gstin", "return_period",
-        "purchase_df", "ims_df", "ims_source", "recon_df", "action_df"
+        "purchase_df", "ims_df", "ims_source", "ims_json_records", "ims_template_bytes", "ims_auto_xlsm_bytes", "recon_df", "action_df"
     ]
     for key in keys:
         db_save(username, key, st.session_state.get(key))
@@ -835,16 +841,217 @@ def extract_records_from_json(obj) -> List[dict]:
     return records
 
 
+def ims_json_records(data) -> List[dict]:
+    section_map = {
+        "b2b": "B2B", "b2ba": "B2BA", "b2bdn": "B2B-DN", "b2bdna": "B2B-DNA",
+        "b2bcn": "B2B-CN", "b2bcna": "B2B-CNA", "cdnr": "B2B-CN", "cdnra": "B2B-CNA",
+        "dn": "B2B-DN", "dna": "B2B-DNA", "cn": "B2B-CN", "cna": "B2B-CNA",
+        "eco": "ECO", "ecoa": "ECOA"
+    }
+    found = []
+
+    def walk(obj, path=""):
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                key = str(k).lower().replace("_", "").replace("-", "")
+                if key in section_map and isinstance(v, list):
+                    for item in v:
+                        if isinstance(item, dict):
+                            rec = flatten_json(item)
+                            rec["__section"] = section_map[key]
+                            rec["__json_key"] = str(k)
+                            found.append(rec)
+                else:
+                    walk(v, f"{path}.{k}" if path else str(k))
+        elif isinstance(obj, list):
+            for i, item in enumerate(obj):
+                walk(item, f"{path}.{i}")
+
+    walk(data)
+    return found
+
+
 def read_ims_json(file) -> pd.DataFrame:
     if file is None:
         return pd.DataFrame()
     data = json.load(file)
-    records = extract_records_from_json(data)
+    records = ims_json_records(data)
+    if not records:
+        records = extract_records_from_json(data)
     if not records:
         return pd.DataFrame()
     raw = pd.DataFrame(records)
-    # Rename likely JSON fields into friendlier headings by fuzzy search
-    return standardize(raw, "IMS JSON", "JSON")
+    section = raw.get("__section", pd.Series(["JSON"] * len(raw)))
+    frames = []
+    for sec, part in raw.groupby(section, dropna=False):
+        default_doc = infer_doc_type_from_sheet(str(sec))
+        std = standardize(part, "IMS JSON", str(sec), default_doc)
+        if not std.empty:
+            frames.append(std)
+    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+
+def parse_ims_json_bytes(file_bytes: bytes) -> Tuple[pd.DataFrame, List[dict], dict]:
+    data = json.loads(file_bytes.decode("utf-8-sig"))
+    records = ims_json_records(data)
+    raw = pd.DataFrame(records) if records else pd.DataFrame()
+    if raw.empty:
+        return pd.DataFrame(), [], data
+    frames = []
+    for sec, part in raw.groupby(raw["__section"], dropna=False):
+        std = standardize(part, "IMS JSON", str(sec), infer_doc_type_from_sheet(str(sec)))
+        if not std.empty:
+            frames.append(std)
+    df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+    return df, records, data
+
+
+def to_excel_date_string(value):
+    if value in [None, "", pd.NaT]:
+        return ""
+    try:
+        dt = pd.to_datetime(value, dayfirst=True, errors="coerce")
+        if pd.isna(dt):
+            return str(value)
+        return dt.strftime("%d-%m-%Y")
+    except Exception:
+        return str(value)
+
+
+def get_json_value(rec: dict, *keys, default=""):
+    for key in keys:
+        if key in rec and rec.get(key) not in [None, ""]:
+            return rec.get(key)
+    lowered = {str(k).lower(): v for k, v in rec.items()}
+    for key in keys:
+        k = str(key).lower()
+        if k in lowered and lowered[k] not in [None, ""]:
+            return lowered[k]
+    return default
+
+
+def action_for_record(rec: dict, action_map: dict) -> str:
+    gstin = normalize_gstin(get_json_value(rec, "stin", "ctin", "supplier_gstin"))
+    doc_no = normalize_doc_no(get_json_value(rec, "inum", "nt_num", "document_no", "oinum"))
+    return action_map.get((gstin, doc_no), "Pending")
+
+
+def build_action_map(recon: pd.DataFrame) -> dict:
+    if recon is None or recon.empty:
+        return {}
+    out = {}
+    for _, row in recon.iterrows():
+        gstin = normalize_gstin(row.get("supplier_gstin", ""))
+        doc = normalize_doc_no(row.get("document_norm", ""))
+        action = "Accepted" if str(row.get("mismatch_type", "")) == "Matched" else "Pending"
+        if gstin and doc:
+            out[(gstin, doc)] = action
+    return out
+
+
+def clear_utility_rows(ws, start_row: int, max_col: int):
+    last = max(ws.max_row, start_row + 500)
+    for row in ws.iter_rows(min_row=start_row, max_row=last, min_col=1, max_col=max_col):
+        for cell in row:
+            cell.value = None
+
+
+def write_row_values(ws, row: int, values: dict):
+    for col, value in values.items():
+        ws.cell(row=row, column=col).value = value
+
+
+def populate_ims_utility_xlsm(template_bytes: bytes, records: List[dict], recon: pd.DataFrame) -> bytes:
+    if not template_bytes:
+        raise ValueError("Please upload IMS Offline Utility .xlsm template first.")
+    if not records:
+        raise ValueError("Please upload/process IMS JSON first.")
+
+    wb = load_workbook(BytesIO(template_bytes), keep_vba=True)
+    action_map = build_action_map(recon)
+    groups: Dict[str, List[dict]] = {}
+    for rec in records:
+        groups.setdefault(str(rec.get("__section", "B2B")), []).append(rec)
+
+    config = {
+        "B2B": {"start": 7, "max_col": 23, "amend": False, "note": False},
+        "B2B-DN": {"start": 7, "max_col": 23, "amend": False, "note": False},
+        "B2B-CN": {"start": 7, "max_col": 35, "amend": False, "note": True},
+        "B2BA": {"start": 8, "max_col": 37, "amend": True, "note": False},
+        "B2B-DNA": {"start": 8, "max_col": 37, "amend": True, "note": False},
+        "B2B-CNA": {"start": 8, "max_col": 37, "amend": True, "note": True},
+    }
+
+    for sheet_name, rows in groups.items():
+        if sheet_name not in wb.sheetnames or sheet_name not in config:
+            continue
+        ws = wb[sheet_name]
+        cfg = config[sheet_name]
+        start = cfg["start"]
+        clear_utility_rows(ws, start, cfg["max_col"])
+
+        for idx, rec in enumerate(rows, start=start):
+            status = action_for_record(rec, action_map)
+            gstin = normalize_gstin(get_json_value(rec, "stin", "ctin", "supplier_gstin"))
+            trade = get_json_value(rec, "tradenm", "supplier_name")
+            doc_no = get_json_value(rec, "inum", "nt_num", "document_no")
+            doc_type = get_json_value(rec, "inv_typ", "ntty", "document_type", default="R")
+            doc_date = to_excel_date_string(get_json_value(rec, "idt", "nt_dt", "document_date"))
+            doc_val = get_json_value(rec, "val", "invoice_value", default=0)
+            pos = get_json_value(rec, "pos", default="")
+            txval = get_json_value(rec, "txval", "taxable_value", default=0)
+            iamt = get_json_value(rec, "iamt", "igst", default=0)
+            camt = get_json_value(rec, "camt", "cgst", default=0)
+            samt = get_json_value(rec, "samt", "sgst", default=0)
+            cess = get_json_value(rec, "cess", default=0)
+            remarks = "Auto Accepted by IMS Recon Pro" if status == "Accepted" else "Auto Pending - not matched in Purchase Register"
+            src = get_json_value(rec, "srcform", default="")
+            rtnprd = get_json_value(rec, "rtnprd", default="")
+            filing = get_json_value(rec, "srcfilstatus", default="")
+            pending_block = get_json_value(rec, "ispendactblocked", default="N")
+            remarks_block = get_json_value(rec, "isRemarksBlocked", "isremarksblocked", default="N")
+
+            if not cfg["amend"]:
+                values = {
+                    1: gstin, 2: trade, 3: doc_no, 4: doc_type, 5: doc_date, 6: float(doc_val or 0),
+                    7: status, 8: pos, 9: float(txval or 0), 10: float(iamt or 0), 11: float(camt or 0),
+                    12: float(samt or 0), 13: float(cess or 0),
+                    14: remarks if sheet_name != "B2B-CN" else "No", 15: src, 16: rtnprd, 17: filing,
+                    20: get_json_value(rec, "action", default="N"),
+                }
+                if sheet_name == "B2B-CN":
+                    values.update({19: remarks, 20: src, 21: rtnprd, 22: filing, 25: get_json_value(rec, "action", default="N"), 32: pending_block, 33: remarks_block})
+                else:
+                    values.update({22: pending_block, 23: remarks_block})
+            else:
+                orig_no = get_json_value(rec, "oinum", "org_inum", "oinv_num", default="")
+                orig_dt = to_excel_date_string(get_json_value(rec, "oidt", "org_idt", "oinv_dt", default=""))
+                values = {
+                    1: orig_no, 2: orig_dt, 3: gstin, 4: trade, 5: doc_no, 6: doc_type, 7: doc_date, 8: float(doc_val or 0),
+                    9: status, 10: pos, 11: float(txval or 0), 12: float(iamt or 0), 13: float(camt or 0),
+                    14: float(samt or 0), 15: float(cess or 0), 16: "No", 21: remarks, 22: src,
+                    23: rtnprd, 24: filing, 27: get_json_value(rec, "action", default="N"),
+                    34: pending_block, 35: remarks_block
+                }
+            write_row_values(ws, idx, values)
+            fill = PatternFill("solid", fgColor="E2F0D9") if status == "Accepted" else PatternFill("solid", fgColor="FFF2CC")
+            ws.cell(idx, 7 if not cfg["amend"] else 9).fill = fill
+            ws.cell(idx, 7 if not cfg["amend"] else 9).font = Font(bold=True)
+
+    if "Home" in wb.sheetnames:
+        ws = wb["Home"]
+        try:
+            rtin = ""
+            for rec in records:
+                rtin = get_json_value(rec, "rtin", default="") or rtin
+            ws["B5"] = "GSTIN"
+            ws["C5"] = rtin or st.session_state.get("client_gstin", "")
+        except Exception:
+            pass
+
+    buffer = BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()
 
 
 def aggregate(df: pd.DataFrame, label: str) -> pd.DataFrame:
@@ -1346,8 +1553,9 @@ def client_setup_page():
 
 
 def upload_center_page():
-    page_title("Upload Center", "Upload Purchase Register, GST IMS Utility .xlsm, or IMS JSON.")
+    page_title("Upload Center", "Upload Purchase Register, IMS JSON and IMS Offline Utility .xlsm template.")
 
+    st.markdown("### Step 1 — Upload source files")
     c1, c2, c3 = st.columns(3)
 
     with c1:
@@ -1365,35 +1573,100 @@ def upload_center_page():
         st.markdown("</div>", unsafe_allow_html=True)
 
     with c2:
-        st.markdown("<div class='panel'><div class='panel-title'>🧾 GST IMS Utility</div>", unsafe_allow_html=True)
-        file = st.file_uploader("Upload GST IMS Utility (.xlsm)", type=["xlsm", "xlsx"], key="ims_util_upload")
-        st.caption("Expected sheets: B2B, B2BA, B2B-DN, B2B-DNA, B2B-CN, B2B-CNA")
-        if file and st.button("Process IMS Utility", use_container_width=True):
-            try:
-                df = read_ims_utility(file)
-                st.session_state.ims_df = df
-                st.session_state.ims_source = "IMS Utility"
-                save_user_state(["ims_df", "ims_source"])
-                log_event("Upload", f"IMS Utility uploaded: {len(df):,} rows")
-                st.success(f"IMS Utility processed: {len(df):,} rows.")
-            except Exception as e:
-                st.error(f"Unable to process IMS Utility: {e}")
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    with c3:
         st.markdown("<div class='panel'><div class='panel-title'>🧬 IMS JSON</div>", unsafe_allow_html=True)
-        file = st.file_uploader("Upload IMS JSON", type=["json"], key="ims_json_upload")
-        if file and st.button("Process IMS JSON", use_container_width=True):
+        json_file = st.file_uploader("Upload IMS JSON downloaded from GST Portal", type=["json"], key="ims_json_upload")
+        if json_file and st.button("Process IMS JSON", use_container_width=True):
             try:
-                df = read_ims_json(file)
+                raw_bytes = json_file.getvalue()
+                df, records, data = parse_ims_json_bytes(raw_bytes)
                 st.session_state.ims_df = df
                 st.session_state.ims_source = "IMS JSON"
-                save_user_state(["ims_df", "ims_source"])
+                st.session_state.ims_json_records = records
+                if isinstance(data, dict) and data.get("rtin"):
+                    st.session_state.client_gstin = normalize_gstin(data.get("rtin"))
+                save_user_state(["ims_df", "ims_source", "ims_json_records", "client_gstin"])
                 log_event("Upload", f"IMS JSON uploaded: {len(df):,} rows")
                 st.success(f"IMS JSON processed: {len(df):,} rows.")
             except Exception as e:
                 st.error(f"Unable to process IMS JSON: {e}")
         st.markdown("</div>", unsafe_allow_html=True)
+
+    with c3:
+        st.markdown("<div class='panel'><div class='panel-title'>🧾 IMS Offline Utility Template</div>", unsafe_allow_html=True)
+        util_file = st.file_uploader("Upload blank IMS Offline Utility (.xlsm)", type=["xlsm"], key="ims_util_template_upload")
+        st.caption("This file will be populated with JSON records and auto actions in Status column.")
+        if util_file and st.button("Save IMS Utility Template", use_container_width=True):
+            try:
+                st.session_state.ims_template_bytes = util_file.getvalue()
+                save_user_state(["ims_template_bytes"])
+                log_event("Upload", "IMS utility template saved")
+                st.success("IMS Offline Utility template saved.")
+            except Exception as e:
+                st.error(f"Unable to save IMS Utility template: {e}")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.markdown("### Step 2 — Run reconciliation and prepare IMS Utility actions")
+    st.info("Process: Purchase Register + IMS JSON → reconciliation outside utility → auto-fill IMS .xlsm Status column. Matched = Accepted, Unmatched = Pending.")
+
+    c4, c5, c6 = st.columns(3)
+    with c4:
+        st.session_state.amount_tolerance = st.number_input("Amount tolerance ₹", min_value=0.0, value=float(st.session_state.amount_tolerance), step=1.0, key="upload_amount_tol")
+    with c5:
+        st.session_state.date_tolerance = st.number_input("Date tolerance days", min_value=0, value=int(st.session_state.date_tolerance), step=1, key="upload_date_tol")
+    with c6:
+        st.session_state.include_amendments = st.checkbox("Include amendment sheets", value=bool(st.session_state.include_amendments), key="upload_include_amend")
+
+    ready_reco = not st.session_state.purchase_df.empty and not st.session_state.ims_df.empty
+    ready_xlsm = ready_reco and bool(st.session_state.ims_template_bytes) and bool(st.session_state.ims_json_records)
+
+    b1, b2 = st.columns(2)
+    with b1:
+        if st.button("🚀 Run Reconciliation from JSON", type="primary", use_container_width=True, disabled=not ready_reco):
+            with st.spinner("Reconciling Purchase Register with IMS JSON..."):
+                recon = calculate_recon(
+                    st.session_state.purchase_df,
+                    st.session_state.ims_df,
+                    st.session_state.amount_tolerance,
+                    st.session_state.date_tolerance,
+                    st.session_state.include_amendments,
+                )
+                recon["final_user_action"] = recon["mismatch_type"].apply(lambda x: "Accepted" if x == "Matched" else "Pending")
+                st.session_state.recon_df = recon
+                st.session_state.action_df = recon.copy()
+                save_user_state(["recon_df", "action_df"])
+                log_event("Reconciliation", f"JSON reconciliation completed: {len(recon):,} rows")
+            st.success(f"Reconciliation completed: {len(st.session_state.recon_df):,} rows.")
+    with b2:
+        if st.button("📌 Generate Auto-Filled IMS Utility .xlsm", use_container_width=True, disabled=not ready_xlsm):
+            try:
+                if st.session_state.recon_df.empty:
+                    recon = calculate_recon(
+                        st.session_state.purchase_df,
+                        st.session_state.ims_df,
+                        st.session_state.amount_tolerance,
+                        st.session_state.date_tolerance,
+                        st.session_state.include_amendments,
+                    )
+                    recon["final_user_action"] = recon["mismatch_type"].apply(lambda x: "Accepted" if x == "Matched" else "Pending")
+                    st.session_state.recon_df = recon
+                    st.session_state.action_df = recon.copy()
+                output = populate_ims_utility_xlsm(st.session_state.ims_template_bytes, st.session_state.ims_json_records, st.session_state.recon_df)
+                st.session_state.ims_auto_xlsm_bytes = output
+                save_user_state(["ims_auto_xlsm_bytes", "recon_df", "action_df"])
+                log_event("IMS Utility", "Auto-filled IMS utility generated")
+                st.success("Auto-filled IMS Utility generated successfully.")
+            except Exception as e:
+                st.error(f"Unable to generate IMS Utility: {e}")
+
+    if st.session_state.ims_auto_xlsm_bytes:
+        st.download_button(
+            "⬇️ Download Auto-Filled IMS Utility .xlsm",
+            data=st.session_state.ims_auto_xlsm_bytes,
+            file_name=f"IMS_Utility_Auto_Action_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsm",
+            mime="application/vnd.ms-excel.sheet.macroEnabled.12",
+            use_container_width=True,
+        )
 
     st.markdown("---")
     page_title("Data Health Check", "Upload status and quality summary.")
@@ -1401,13 +1674,17 @@ def upload_center_page():
     p = st.session_state.purchase_df
     ims = st.session_state.ims_df
     with h1: metric_card("📚", "Purchase Rows", f"{len(p):,}", "", "#ffefe2", "#ec8b24")
-    with h2: metric_card("📥", "IMS Rows", f"{len(ims):,}", st.session_state.ims_source, "#ecfaef", "#27a857")
+    with h2: metric_card("📥", "IMS JSON Rows", f"{len(ims):,}", st.session_state.ims_source, "#ecfaef", "#27a857")
     with h3:
         invalid = int((~p["gstin_valid"]).sum()) if not p.empty and "gstin_valid" in p else 0
         metric_card("⚠️", "Purchase Invalid GSTIN", f"{invalid:,}", "", "#fff0ed", "#e1563a", True)
     with h4:
         invalid = int((~ims["gstin_valid"]).sum()) if not ims.empty and "gstin_valid" in ims else 0
         metric_card("🛡️", "IMS Invalid GSTIN", f"{invalid:,}", "", "#edf4ff", "#4d8df7")
+
+    if not ims.empty:
+        st.markdown("### IMS JSON Preview")
+        show_df(ims.head(50))
 
 
 def ims_data_viewer_page():
