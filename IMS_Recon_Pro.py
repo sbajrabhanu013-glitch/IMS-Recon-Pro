@@ -232,125 +232,226 @@ def inject_css():
     st.markdown("""
     <style>
         :root {
-            --navy:#071a3d; --navy2:#0d2d63; --gold:#d89a3f; --saffron:#ff9933;
-            --green:#138808; --light:#f7f9fc; --card:#ffffff; --border:#e7edf5;
-            --text:#112244; --muted:#5c6b85; --red:#e1563a; --orange:#f4a62a;
-            --blue:#4d8df7; --purple:#8b6cf7;
+            --navy:#071a3d;
+            --navy2:#0d2d63;
+            --navy3:#113f84;
+            --light-navy:#d9e6f7;
+            --panel:#f7fbff;
+            --card:#ffffff;
+            --border:#ccdaec;
+            --text:#112244;
+            --muted:#5c6b85;
+            --saffron:#ff9933;
+            --green:#138808;
+            --gold:#d89a3f;
+            --red:#e1563a;
+            --orange:#f4a62a;
+            --blue:#4d8df7;
+            --purple:#8b6cf7;
         }
+
         .stApp {
             background:
-                radial-gradient(circle at top left, rgba(255,153,51,0.18), transparent 28%),
-                radial-gradient(circle at bottom right, rgba(19,136,8,0.14), transparent 30%),
-                linear-gradient(180deg, #c8d9f0 0%, #b9cde8 48%, #d7e6f7 100%);
+                radial-gradient(circle at top left, rgba(255,153,51,0.13), transparent 26%),
+                radial-gradient(circle at bottom right, rgba(19,136,8,0.10), transparent 28%),
+                linear-gradient(180deg, #d6e3f5 0%, #c9d9ee 45%, #dce8f7 100%);
         }
+
         header[data-testid="stHeader"] {
             visibility: visible !important;
             height: auto !important;
-            background: rgba(219, 234, 254, 0.90) !important;
+            background: rgba(218, 231, 247, 0.92) !important;
             backdrop-filter: blur(8px);
-            border-bottom: 1px solid rgba(11,42,93,0.10);
+            border-bottom: 1px solid rgba(7,26,61,0.10);
         }
         div[data-testid="stToolbar"] { visibility:hidden; height:0; }
-        .block-container {padding-top:1.25rem; padding-bottom:1.5rem; max-width:1540px;}
+
+        .block-container {
+            padding-top: 1.25rem;
+            padding-bottom: 1.5rem;
+            max-width: 1560px;
+        }
+
         section[data-testid="stSidebar"] {
-            min-width: 360px !important;
-            width: 360px !important;
-            max-width: 360px !important;
-            transform: translateX(0px) !important;
-            visibility: visible !important;
-            display: block !important;
-            opacity: 1 !important;
-            background: linear-gradient(180deg, #020a1f 0%, #041a3d 48%, #061f4a 100%) !important;
-            border-right: 3px solid rgba(255,255,255,0.20) !important;
-            box-shadow: 14px 0 42px rgba(0,0,0,0.34) !important;
-            z-index: 999999 !important;
+            min-width: 330px !important;
+            width: 330px !important;
+            max-width: 330px !important;
+            background: linear-gradient(180deg, #02132f 0%, #06214b 52%, #031329 100%);
+            border-right: 1px solid rgba(255,255,255,0.10);
+            box-shadow: 10px 0 28px rgba(0,0,0,0.22);
         }
-        section[data-testid="stSidebar"] > div {
-            min-width: 360px !important;
-            width: 360px !important;
-            max-width: 360px !important;
-            background: transparent !important;
+        section[data-testid="stSidebar"] * { color: #eef4ff; }
+        [data-testid="stSidebarCollapseButton"] svg,
+        [data-testid="collapsedControl"] svg { width: 1.35rem !important; height: 1.35rem !important; }
+        [data-testid="collapsedControl"] {
+            background: rgba(7,26,61,0.82) !important;
+            border-radius: 12px !important;
+            padding: 0.35rem !important;
         }
-        section[data-testid="stSidebar"] * { color: #f4f7fb; }
-        button[kind="header"], button[data-testid="baseButton-header"] {
-            transform: scale(1.35);
-            transform-origin: left center;
-        }
+
         .sidebar-logo {
-            display:flex; align-items:center; gap:16px; padding:18px 6px 22px 6px;
-            margin-bottom:14px; border-bottom:1px solid rgba(255,255,255,0.14);
+            display:flex;
+            align-items:center;
+            gap:14px;
+            padding:10px 4px 20px 4px;
+            margin-bottom:12px;
+            border-bottom:1px solid rgba(255,255,255,0.09);
         }
         .logo-mark {
-            width:62px;height:62px;border-radius:20px;
-            background: linear-gradient(135deg,#ffcf75,#f59e0b 46%,#0f7a3b);
-            display:flex;align-items:center;justify-content:center;
-            color:white;font-size:34px;font-weight:900; box-shadow:0 12px 26px rgba(245,158,11,0.34);
+            width:58px;
+            height:58px;
+            border-radius:18px;
+            background: linear-gradient(135deg,#ffcf63 0%, #f59e0b 38%, #138808 100%);
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            color:white;
+            font-size:28px;
+            font-weight:800;
+            box-shadow:0 12px 24px rgba(245,158,11,0.25);
         }
-        .sidebar-caption {font-size:14px;color:#c9d9f2;margin-top:4px;font-weight:600;}
-        .menu-item {
-            padding:12px 14px; margin:8px 0; border-radius:16px; color:#e9f0ff;
-            font-size:15px; border:1px solid rgba(255,255,255,0.06); background:rgba(255,255,255,0.02);
+        .sidebar-caption {font-size:14px;color:#c8d7ef;margin-top:4px;}
+        .status-box {
+            margin-top:20px;
+            padding:18px;
+            border-radius:18px;
+            background:linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.04));
+            border:1px solid rgba(255,255,255,0.12);
         }
-        .menu-item.active {
-            background: linear-gradient(90deg, rgba(255,153,51,0.18), rgba(255,255,255,0.05));
-            border:1px solid rgba(255,153,51,0.55);
-        }
-        .menu-badge {float:right;background:#ff7b36;color:white;font-size:11px;padding:2px 8px;border-radius:999px;}
-        .new-badge {display:inline-block;background:#33b36b;color:white;font-size:11px;padding:2px 8px;border-radius:999px;}
+
         section[data-testid="stSidebar"] .stButton > button {
-            min-height: 52px;
-            border-radius: 16px;
-            font-size: 17px;
-            font-weight: 750;
-            text-align: left;
-            justify-content: flex-start;
-            padding-left: 18px;
-            background: rgba(255,255,255,0.075);
-            border: 1px solid rgba(255,255,255,0.12);
-            color: #ffffff !important;
-            box-shadow: none;
+            width:100%;
+            border-radius:18px;
+            min-height:56px;
+            margin:6px 0;
+            border:1px solid rgba(255,255,255,0.09);
+            background: rgba(255,255,255,0.08);
+            color:#ffffff;
+            font-size:16px;
+            font-weight:700;
+            text-align:left;
+            padding:0.8rem 1rem;
+            box-shadow:none;
         }
         section[data-testid="stSidebar"] .stButton > button:hover {
-            background: linear-gradient(90deg, rgba(255,153,51,0.30), rgba(255,255,255,0.10));
-            border: 1px solid rgba(255,153,51,0.60);
-            transform: translateX(2px);
+            border-color: rgba(255,153,51,0.62);
+            background: linear-gradient(90deg, rgba(255,153,51,0.18), rgba(255,255,255,0.08));
+            color:#ffffff;
         }
-        .status-box {
-            margin-top:18px; padding:16px;border-radius:18px;
-            background:linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02));
-            border:1px solid rgba(255,255,255,0.08);
+
+        .main-shell,
+        .panel,
+        .metric-card,
+        .small-card {
+            background:#ffffff;
+            border:1px solid var(--border);
+            box-shadow:0 12px 30px rgba(16,34,68,.10);
         }
-        .hero-top {
-            background:linear-gradient(90deg,#081a3d 0%,#09224a 45%,#0d2f63 100%);
-            min-height:106px; position:relative; overflow:hidden; padding:22px 28px;
-            display:flex;align-items:center;justify-content:space-between; border-radius:24px 24px 0 0;
-        }
-        .flag-left,.flag-right {position:absolute;top:0;height:112px;width:300px;opacity:.96;}
-        .flag-left {left:0;background:
-            radial-gradient(circle at 30% 50%, #143f89 0 16px, transparent 17px),
-            linear-gradient(165deg, transparent 0 18%, #ff9933 18% 33%, #ffffff 33% 48%, #138808 48% 63%, transparent 63% 100%);}
-        .flag-right {right:0;background:
-            linear-gradient(345deg, transparent 0 18%, #ff9933 18% 33%, #ffffff 33% 48%, #138808 48% 63%, transparent 63% 100%);}
-        .chakra-right {position:absolute;right:122px;top:16px;font-size:52px;color:rgba(255,255,255,.88);}
-        .hero-brand {position:relative;z-index:2;display:flex;align-items:center;gap:16px;}
-        .hero-brand-mark {
-            width:56px;height:56px;border-radius:18px;background:linear-gradient(135deg,#fff0d3,#ffffff 45%,#fff1d9);
-            display:flex;align-items:center;justify-content:center;color:#0d2f63;font-size:30px;font-weight:700;
-            box-shadow:0 10px 24px rgba(0,0,0,.12);
-        }
-        .hero-title {font-size:30px;font-weight:800;color:#fff;line-height:1.1;}
-        .hero-sub {font-size:15px;color:#dfe9ff;margin-top:6px;}
-        .hero-meta {position:relative;z-index:2;display:flex;align-items:center;gap:22px;color:white;font-size:14px;}
-        .meta-chip {display:flex;align-items:center;gap:10px;}
-        .meta-big {font-weight:700;} .meta-small {color:#dbe6ff;font-size:12px;}
         .main-shell {
-            border:1px solid #c5d4e8; border-radius:24px; background:#ffffff;
-            box-shadow:0 16px 38px rgba(16,34,68,.14); overflow:hidden; margin-bottom:18px;
+            border-radius:24px;
+            overflow:hidden;
+            margin-bottom:18px;
         }
+        .panel, .metric-card, .small-card {
+            border-radius:22px;
+            padding:18px 20px;
+            height:100%;
+        }
+
+        .app-header-card {
+            background:#ffffff;
+            border:1px solid #c9d8ea;
+            border-radius:26px;
+            overflow:hidden;
+            box-shadow:0 16px 34px rgba(7,26,61,0.12);
+            margin-bottom:18px;
+        }
+        .app-header-flag {
+            background:
+                linear-gradient(165deg, transparent 0 8%, var(--saffron) 8% 24%, #ffffff 24% 40%, var(--green) 40% 56%, transparent 56% 100%),
+                linear-gradient(90deg, #082655 0%, #0a2f67 100%);
+            padding:22px 26px;
+            display:grid;
+            grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+            gap:20px;
+            align-items:center;
+        }
+        .flag-brand-wrap {
+            display:flex;
+            gap:16px;
+            align-items:center;
+        }
+        .flag-emblem {
+            min-width:74px;
+            width:74px;
+            height:74px;
+            border-radius:22px;
+            background: rgba(255,255,255,0.93);
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            color:#0b2a5d;
+            font-size:34px;
+            box-shadow: 0 12px 28px rgba(7,26,61,0.18);
+        }
+        .flag-brand-title {font-size:38px; line-height:1.02; font-weight:900; color:#ffffff; letter-spacing:-0.02em;}
+        .flag-brand-title .accent {color:#f6c354;}
+        .flag-brand-sub {font-size:17px; color:#edf4ff; margin-top:8px; max-width:720px; line-height:1.4;}
+        .flag-brand-note {font-size:13px; color:#d8e6fb; margin-top:6px;}
+        .header-right-wrap {
+            display:flex;
+            justify-content:flex-end;
+        }
+        .header-right-card {
+            display:flex;
+            align-items:center;
+            justify-content:flex-end;
+            gap:16px;
+            padding:14px 18px;
+            background: rgba(255,255,255,0.16);
+            border:1px solid rgba(255,255,255,0.16);
+            border-radius:20px;
+            min-width: 320px;
+            backdrop-filter: blur(4px);
+        }
+        .header-sthambh {
+            width:72px; height:72px; border-radius:18px;
+            background: rgba(255,255,255,0.94);
+            display:flex; align-items:center; justify-content:center;
+            font-size:42px; box-shadow:0 10px 22px rgba(7,26,61,0.16);
+        }
+        .header-right-copy {text-align:right;}
+        .header-right-copy .small {font-size:13px;color:#eef4ff;}
+        .header-right-copy .big {font-size:18px;font-weight:800;color:#ffffff; margin-top:2px;}
+        .header-meta-band {
+            background: linear-gradient(90deg, #edf3fb 0%, #e4eef9 40%, #d8e7f7 100%);
+            border-top:1px solid #d2e0ef;
+            padding:14px 22px;
+            display:grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap:14px;
+        }
+        .meta-item {
+            background:#ffffff;
+            border:1px solid #d7e2ef;
+            border-radius:16px;
+            padding:12px 14px;
+            display:flex;
+            gap:12px;
+            align-items:center;
+            min-height:66px;
+        }
+        .meta-icon {
+            width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center;
+            background:#eef4ff; font-size:20px;
+        }
+        .meta-item .label {font-size:12px; color:#59708d;}
+        .meta-item .value {font-size:16px; color:#112244; font-weight:800; line-height:1.25;}
+
         .content-pad {padding:28px; position:relative;}
         .watermark {
-            position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);
-            font-size:210px;color:rgba(14,41,90,.035);pointer-events:none;
+            position:absolute; left:50%; top:46%; transform:translate(-50%,-50%);
+            font-size:210px; color:rgba(14,41,90,.035); pointer-events:none;
         }
         .headline {font-size:20px;color:#ff8e1a;font-weight:700;}
         .main-title {font-size:28px;font-weight:800;color:#112244;line-height:1.25;margin-top:8px;}
@@ -360,102 +461,81 @@ def inject_css():
         }
         .cta-dark {background:#0b2a5d;color:white;box-shadow:0 10px 18px rgba(11,42,93,.18);}
         .cta-light {background:white;color:#0b2a5d;border:1px solid #d9e3f3;}
-        .metric-card, .panel, .small-card {
-            background:#ffffff;border:1px solid #c7d6ea;border-radius:20px;padding:18px 20px;
-            box-shadow:0 12px 28px rgba(16,34,68,.12);height:100%;
-        }
-        .panel {padding:22px;border-radius:22px;}
-        .small-card {margin-bottom:18px;}
+
         .metric-top {display:flex;align-items:center;gap:14px;}
         .metric-icon {width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;}
         .metric-label {font-size:14px;color:#59708d;}
         .metric-value {font-size:32px;font-weight:800;color:#142748;line-height:1.15;}
-        .metric-delta {font-size:13px;color:#12a150;margin-top:6px;} .metric-delta.red {color:#e1563a;}
+        .metric-delta {font-size:13px;color:#12a150;margin-top:6px;}
+        .metric-delta.red {color:#e1563a;}
         .panel-title {font-size:18px;font-weight:800;color:#17294a;}
-        .panel-link {font-size:13px;color:#2b72e3;font-weight:700;}
         .feature-card {background:linear-gradient(180deg,#fffaf1,#fff7eb);border:1px solid #f0dfc0;border-radius:16px;padding:14px 16px;margin-bottom:12px;}
         .feature-card.blue {background:linear-gradient(180deg,#f5f9ff,#eef5ff);border-color:#d6e4ff;}
         .feature-card.green {background:linear-gradient(180deg,#f5fbf3,#eff9ec);border-color:#d8ead0;}
         .feature-title {font-weight:700;color:#23385d;font-size:16px;}
-        .feature-desc {font-size:13px;color:#5f6f89;line-height:1.35;margin-top:4px;}
+        .feature-desc {font-size:13px;color:#5f6f89;line-height:1.4;margin-top:4px;}
         .shield-center {width:130px;height:130px;border-radius:50%;margin:0 auto 18px auto;background:radial-gradient(circle at 30% 30%,#fffef4,#f8f0d2 55%,#ead39f 100%);display:flex;align-items:center;justify-content:center;font-size:56px;box-shadow:inset 0 0 0 10px rgba(255,255,255,.65),0 10px 24px rgba(194,165,97,.16);}
-        .section-title {font-size:24px;font-weight:850;color:#112244;margin:6px 0 4px 0;}
+        .section-title {font-size:26px;font-weight:850;color:#112244;margin:8px 0 4px 0;}
         .section-sub {font-size:14px;color:#60748f;margin-bottom:18px;}
-        .pill {display:inline-block;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700;border:1px solid #e2e9f4;background:#f8fbff;color:#284262;}
-        .pill.green {background:#ecfdf3;color:#138808;border-color:#bceccc;}
-        .pill.orange {background:#fff7ed;color:#c76f00;border-color:#ffd8a8;}
-        .pill.red {background:#fff1f1;color:#cf2f2f;border-color:#ffc7c7;}
-        .pill.blue {background:#eff6ff;color:#1d5fd1;border-color:#cce0ff;}
+
         .login-bg {
-            min-height:calc(100vh - 40px);display:flex;align-items:center;justify-content:center;
+            min-height:calc(100vh - 40px); display:flex; align-items:center; justify-content:center;
             background: radial-gradient(circle at 20% 10%, rgba(255,153,51,.18), transparent 30%),
                         radial-gradient(circle at 85% 80%, rgba(19,136,8,.16), transparent 32%),
                         linear-gradient(135deg,#071a3d,#0d2d63);
-            border-radius:28px;position:relative;overflow:hidden;
+            border-radius:28px; position:relative; overflow:hidden;
         }
         .login-card {
-            width:430px;background:rgba(255,255,255,.94);border:1px solid rgba(255,255,255,.5);
-            border-radius:28px;padding:34px;box-shadow:0 30px 80px rgba(0,0,0,.28);
+            width:460px; background:rgba(255,255,255,.96); border:1px solid rgba(255,255,255,.6);
+            border-radius:28px; padding:34px; box-shadow:0 30px 80px rgba(0,0,0,.28);
         }
         .login-title {font-size:34px;font-weight:900;color:#071a3d;text-align:center;}
         .login-sub {font-size:15px;color:#566982;text-align:center;margin-bottom:22px;}
-        .copyright-float {position:fixed;right:18px;bottom:14px;color:rgba(7,26,61,.22);font-weight:900;letter-spacing:.08em;z-index:99;}
-        .footer-bar {margin-top:16px;border-radius:22px;background:linear-gradient(90deg,#061a3e 0%,#082b61 45%,#061a3e 100%);color:white;padding:18px 22px;}
-        .foot-item {display:flex;align-items:center;gap:10px;justify-content:center;}
-        .foot-main {font-weight:700;} .foot-sub {font-size:13px;color:#d4e0ff;}
+        .copyright-float {position:fixed;right:18px;bottom:14px;color:rgba(7,26,61,.20);font-weight:900;letter-spacing:.08em;z-index:99;}
 
-        /* =====================================================
-           FORCE SIDEBAR VISIBLE - fixes collapsed/thin sidebar
-           ===================================================== */
-        div[data-testid="stSidebarCollapsedControl"],
-        button[data-testid="collapsedControl"],
-        [data-testid="collapsedControl"] {
-            display: none !important;
-            visibility: hidden !important;
+        .footer-bar {
+            margin-top:18px;
+            border-radius:22px;
+            background:linear-gradient(90deg,#061a3e 0%,#082b61 45%,#061a3e 100%);
+            color:white;
+            padding:18px 22px;
+            box-shadow:0 12px 28px rgba(7,26,61,0.14);
         }
-        [data-testid="stSidebar"] {
-            position: fixed !important;
-            left: 0 !important;
-            top: 0 !important;
-            bottom: 0 !important;
-            height: 100vh !important;
-            overflow-y: auto !important;
-            transform: translateX(0px) !important;
+        .foot-item {display:flex;align-items:center;gap:10px;justify-content:center;}
+        .foot-main {font-weight:700;}
+        .foot-sub {font-size:13px;color:#d4e0ff;}
+
+        .stTextInput input, .stNumberInput input, .stDateInput input, .stSelectbox div[data-baseweb="select"] > div {
+            border-radius:14px !important;
         }
-        [data-testid="stSidebar"] + div,
-        [data-testid="stAppViewContainer"] {
-            margin-left: 360px !important;
-            width: calc(100% - 360px) !important;
+        .stForm {
+            background:#f8fbff;
+            border:1px solid #d5e2f0;
+            border-radius:18px;
+            padding:16px;
         }
-        .main .block-container {
-            max-width: 1280px !important;
-            padding-left: 2rem !important;
-            padding-right: 2rem !important;
-        }
-        section[data-testid="stSidebar"] .stButton > button p {
-            font-size: 18px !important;
-            font-weight: 800 !important;
-            white-space: nowrap !important;
-        }
-        section[data-testid="stSidebar"] .stButton > button {
-            width: 100% !important;
-            min-height: 58px !important;
-            margin-bottom: 8px !important;
-        }
-        @media (max-width: 900px) {
-            [data-testid="stSidebar"] {
-                width: 300px !important;
+
+        @media (max-width: 1200px) {
+            .app-header-flag {grid-template-columns: 1fr;}
+            .header-right-wrap {justify-content:flex-start;}
+            .header-meta-band {grid-template-columns: repeat(2, minmax(0, 1fr));}
+            section[data-testid="stSidebar"] {
                 min-width: 300px !important;
+                width: 300px !important;
                 max-width: 300px !important;
             }
-            [data-testid="stSidebar"] + div,
-            [data-testid="stAppViewContainer"] {
-                margin-left: 300px !important;
-                width: calc(100% - 300px) !important;
-            }
+        }
+        @media (max-width: 768px) {
+            .flag-brand-title {font-size:28px;}
+            .flag-brand-sub {font-size:15px;}
+            .header-meta-band {grid-template-columns: 1fr;}
+            .header-right-card {min-width:100%; justify-content:flex-start;}
+            .header-right-copy {text-align:left;}
+            .block-container {padding-top: 0.8rem;}
         }
     </style>
     """, unsafe_allow_html=True)
+
 
 
 # =========================================================
@@ -978,24 +1058,45 @@ def safe_display_df(df: pd.DataFrame, limit: int = 1000) -> pd.DataFrame:
 
 def top_header():
     st.markdown(f"""
-    <div class='main-shell'>
-      <div class='hero-top'>
-        <div class='flag-left'></div>
-        <div class='flag-right'></div>
-        <div class='chakra-right'>🦁</div>
-        <div class='hero-brand'>
-          <div class='hero-brand-mark'>⬢</div>
-          <div>
-            <div class='hero-title'>IMS Recon <span style='color:#f6b443'>Pro</span></div>
-            <div class='hero-sub'>{APP_TAGLINE}</div>
-          </div>
+    <div class='app-header-card'>
+        <div class='app-header-flag'>
+            <div class='flag-brand-wrap'>
+                <div class='flag-emblem'>☸</div>
+                <div>
+                    <div class='flag-brand-title'>IMS Recon <span class='accent'>Pro</span></div>
+                    <div class='flag-brand-sub'>Intelligent GST IMS Reconciliation & Action Management Platform</div>
+                    <div class='flag-brand-note'>Built for India • Designed for Compliance • Powered by structured reconciliation workflow</div>
+                </div>
+            </div>
+            <div class='header-right-wrap'>
+                <div class='header-right-card'>
+                    <div class='header-sthambh'>🦁</div>
+                    <div class='header-right-copy'>
+                        <div class='small'>National compliance interface</div>
+                        <div class='big'>Indian Flag Theme • Ashoka Stambh Header</div>
+                        <div class='small'>GST IMS workflow dashboard</div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class='hero-meta'>
-          <div class='meta-chip'><div style='font-size:22px;'>🗓️</div><div><div class='meta-big'>{datetime.today().strftime("%d %b %Y")}</div><div class='meta-small'>{datetime.today().strftime("%A")}</div></div></div>
-          <div class='meta-chip'><div style='font-size:24px;'>👤</div><div><div class='meta-small'>Welcome,</div><div class='meta-big'>{st.session_state.get("display_name", "User")}</div></div></div>
-          <div class='meta-big'>© {COPYRIGHT_OWNER}</div>
+        <div class='header-meta-band'>
+            <div class='meta-item'>
+                <div class='meta-icon'>🗓️</div>
+                <div><div class='label'>Today</div><div class='value'>{datetime.today().strftime("%d %b %Y")} • {datetime.today().strftime("%A")}</div></div>
+            </div>
+            <div class='meta-item'>
+                <div class='meta-icon'>👤</div>
+                <div><div class='label'>Logged in user</div><div class='value'>{st.session_state.get("display_name", "User")} ({st.session_state.get("role", "")})</div></div>
+            </div>
+            <div class='meta-item'>
+                <div class='meta-icon'>🏢</div>
+                <div><div class='label'>Client / GSTIN</div><div class='value'>{st.session_state.get("client_name", "Not set") or "Not set"} • {st.session_state.get("client_gstin", "GSTIN pending") or "GSTIN pending"}</div></div>
+            </div>
+            <div class='meta-item'>
+                <div class='meta-icon'>©</div>
+                <div><div class='label'>Copyright</div><div class='value'>{COPYRIGHT_OWNER} • IMS Recon Pro</div></div>
+            </div>
         </div>
-      </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1006,11 +1107,11 @@ def sidebar():
         <div class='sidebar-logo'>
             <div class='logo-mark'>✦</div>
             <div>
-                <div style='font-size:31px;font-weight:900;letter-spacing:-0.5px;'>IMS Recon Pro</div>
-                <div class='sidebar-caption'>GST IMS Suite • Menu</div>
+                <div style='font-size:28px;font-weight:900;letter-spacing:-0.4px;line-height:1.1;'>IMS Recon Pro</div>
+                <div class='sidebar-caption'>GST IMS Suite • Navigation Panel</div>
             </div>
         </div>
-        <div style='background:rgba(255,153,51,0.16);border:1px solid rgba(255,153,51,0.42);border-radius:18px;padding:12px 14px;margin:4px 0 16px 0;font-size:18px;font-weight:850;color:#fff;'>☰ MAIN MENU</div>
+        <div style='background:rgba(255,153,51,0.14);border:1px solid rgba(255,153,51,0.42);border-radius:18px;padding:12px 14px;margin:2px 0 16px 0;font-size:18px;font-weight:850;color:#fff;'>☰ MAIN MENU</div>
         """, unsafe_allow_html=True)
 
         pages = [
@@ -1028,17 +1129,18 @@ def sidebar():
         ]
 
         for icon, page in pages:
-            active = "active" if st.session_state.page == page else ""
-            if st.button(f"{icon}  {page}", key=f"nav_{page}", use_container_width=True):
+            label = f"{icon}  {page}"
+            if st.button(label, key=f"nav_{page}", use_container_width=True):
                 st.session_state.page = page
                 st.rerun()
 
         st.markdown(f"""
         <div class='status-box'>
-            <div style='font-size:17px;font-weight:700;'>System Status</div>
+            <div style='font-size:18px;font-weight:800;'>System Status</div>
             <div style='color:#8ef3a2;font-size:14px;margin-top:8px;'>● All Systems Operational</div>
-            <div style='font-size:12px;color:#bac9df;margin-top:10px;'>User: {st.session_state.get("username","")}</div>
-            <div style='font-size:12px;color:#bac9df;'>Role: {st.session_state.get("role","")}</div>
+            <div style='font-size:13px;color:#d0def2;margin-top:12px;'>User ID: {st.session_state.get("username","")}</div>
+            <div style='font-size:13px;color:#d0def2;'>Role: {st.session_state.get("role","")}</div>
+            <div style='font-size:13px;color:#d0def2;'>Version: {ENGINE_VERSION}</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1594,7 +1696,7 @@ def main():
     elif page == "Admin Panel":
         admin_page()
 
-    st.markdown("""
+    st.markdown(f"""
     <div class='footer-bar'>
         <div style='display:flex;justify-content:space-around;gap:20px;flex-wrap:wrap;'>
             <div class='foot-item'><div style='font-size:26px;'>🛡️</div><div><div class='foot-main'>Secure</div><div class='foot-sub'>Enterprise-grade control</div></div></div>
@@ -1603,8 +1705,8 @@ def main():
             <div class='foot-item'><div style='font-size:26px;'>✨</div><div><div class='foot-main'>Smart</div><div class='foot-sub'>AI-like insights</div></div></div>
         </div>
     </div>
-    <div style='text-align:center;color:#687a95;font-size:14px;margin-top:14px;'>
-        © 2025 IMS Recon Pro. All rights reserved. | Designed for India. Built for Compliance. | @BAJRABHANU
+    <div style='text-align:center;color:#5d718e;font-size:14px;margin-top:14px;padding-bottom:10px;'>
+        © 2026 IMS Recon Pro • {COPYRIGHT_OWNER} • Designed for India • Built for Compliance
     </div>
     """, unsafe_allow_html=True)
 
