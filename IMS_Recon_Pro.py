@@ -84,6 +84,7 @@ st.set_page_config(
     page_icon="🇮🇳",
     layout="wide",
     initial_sidebar_state="expanded",
+    menu_items=None,
 )
 
 
@@ -236,25 +237,48 @@ def inject_css():
             --text:#112244; --muted:#5c6b85; --red:#e1563a; --orange:#f4a62a;
             --blue:#4d8df7; --purple:#8b6cf7;
         }
-        .stApp { background: linear-gradient(180deg, #fbfcfe 0%, #f2f6fb 100%); }
-        header[data-testid="stHeader"], div[data-testid="stToolbar"] { visibility:hidden; height:0; }
-        .block-container {padding-top:1rem; padding-bottom:1.5rem; max-width:1540px;}
+        .stApp {
+            background:
+                radial-gradient(circle at top left, rgba(255,153,51,0.18), transparent 28%),
+                radial-gradient(circle at bottom right, rgba(19,136,8,0.14), transparent 30%),
+                linear-gradient(180deg, #dbeafe 0%, #c9d9ef 48%, #e8f1fb 100%);
+        }
+        header[data-testid="stHeader"] {
+            visibility: visible !important;
+            height: auto !important;
+            background: rgba(219, 234, 254, 0.90) !important;
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid rgba(11,42,93,0.10);
+        }
+        div[data-testid="stToolbar"] { visibility:hidden; height:0; }
+        .block-container {padding-top:1.25rem; padding-bottom:1.5rem; max-width:1540px;}
         section[data-testid="stSidebar"] {
-            background: linear-gradient(180deg, #06162f 0%, #071a3d 60%, #031126 100%);
-            border-right: 1px solid rgba(255,255,255,0.08);
+            min-width: 330px !important;
+            width: 330px !important;
+            background: linear-gradient(180deg, #03122d 0%, #062451 52%, #020817 100%);
+            border-right: 2px solid rgba(255,255,255,0.16);
+            box-shadow: 10px 0 34px rgba(0,0,0,0.24);
+        }
+        section[data-testid="stSidebar"] > div {
+            min-width: 330px !important;
+            width: 330px !important;
         }
         section[data-testid="stSidebar"] * { color: #f4f7fb; }
+        button[kind="header"], button[data-testid="baseButton-header"] {
+            transform: scale(1.35);
+            transform-origin: left center;
+        }
         .sidebar-logo {
-            display:flex; align-items:center; gap:12px; padding:10px 4px 18px 4px;
-            margin-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.08);
+            display:flex; align-items:center; gap:16px; padding:18px 6px 22px 6px;
+            margin-bottom:14px; border-bottom:1px solid rgba(255,255,255,0.14);
         }
         .logo-mark {
-            width:42px;height:42px;border-radius:14px;
-            background: linear-gradient(135deg,#f3b34d,#f59e0b 45%,#0f6b36);
+            width:62px;height:62px;border-radius:20px;
+            background: linear-gradient(135deg,#ffcf75,#f59e0b 46%,#0f7a3b);
             display:flex;align-items:center;justify-content:center;
-            color:white;font-size:22px;font-weight:700; box-shadow:0 8px 18px rgba(245,158,11,0.25);
+            color:white;font-size:34px;font-weight:900; box-shadow:0 12px 26px rgba(245,158,11,0.34);
         }
-        .sidebar-caption {font-size:12px;color:#b8c6dd;margin-top:2px;}
+        .sidebar-caption {font-size:14px;color:#c9d9f2;margin-top:4px;font-weight:600;}
         .menu-item {
             padding:12px 14px; margin:8px 0; border-radius:16px; color:#e9f0ff;
             font-size:15px; border:1px solid rgba(255,255,255,0.06); background:rgba(255,255,255,0.02);
@@ -265,6 +289,24 @@ def inject_css():
         }
         .menu-badge {float:right;background:#ff7b36;color:white;font-size:11px;padding:2px 8px;border-radius:999px;}
         .new-badge {display:inline-block;background:#33b36b;color:white;font-size:11px;padding:2px 8px;border-radius:999px;}
+        section[data-testid="stSidebar"] .stButton > button {
+            min-height: 52px;
+            border-radius: 16px;
+            font-size: 17px;
+            font-weight: 750;
+            text-align: left;
+            justify-content: flex-start;
+            padding-left: 18px;
+            background: rgba(255,255,255,0.075);
+            border: 1px solid rgba(255,255,255,0.12);
+            color: #ffffff !important;
+            box-shadow: none;
+        }
+        section[data-testid="stSidebar"] .stButton > button:hover {
+            background: linear-gradient(90deg, rgba(255,153,51,0.30), rgba(255,255,255,0.10));
+            border: 1px solid rgba(255,153,51,0.60);
+            transform: translateX(2px);
+        }
         .status-box {
             margin-top:18px; padding:16px;border-radius:18px;
             background:linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02));
@@ -294,8 +336,8 @@ def inject_css():
         .meta-chip {display:flex;align-items:center;gap:10px;}
         .meta-big {font-weight:700;} .meta-small {color:#dbe6ff;font-size:12px;}
         .main-shell {
-            border:1px solid var(--border); border-radius:24px; background:#fff;
-            box-shadow:0 10px 25px rgba(16,34,68,.05); overflow:hidden; margin-bottom:18px;
+            border:1px solid #c5d4e8; border-radius:24px; background:#ffffff;
+            box-shadow:0 16px 38px rgba(16,34,68,.14); overflow:hidden; margin-bottom:18px;
         }
         .content-pad {padding:28px; position:relative;}
         .watermark {
@@ -311,8 +353,8 @@ def inject_css():
         .cta-dark {background:#0b2a5d;color:white;box-shadow:0 10px 18px rgba(11,42,93,.18);}
         .cta-light {background:white;color:#0b2a5d;border:1px solid #d9e3f3;}
         .metric-card, .panel, .small-card {
-            background:#fff;border:1px solid var(--border);border-radius:20px;padding:18px 20px;
-            box-shadow:0 8px 18px rgba(16,34,68,.04);height:100%;
+            background:#ffffff;border:1px solid #c7d6ea;border-radius:20px;padding:18px 20px;
+            box-shadow:0 12px 28px rgba(16,34,68,.12);height:100%;
         }
         .panel {padding:22px;border-radius:22px;}
         .small-card {margin-bottom:18px;}
@@ -905,10 +947,11 @@ def sidebar():
         <div class='sidebar-logo'>
             <div class='logo-mark'>✦</div>
             <div>
-                <div style='font-size:26px;font-weight:800;'>IMS Recon Pro</div>
-                <div class='sidebar-caption'>GST IMS Suite</div>
+                <div style='font-size:31px;font-weight:900;letter-spacing:-0.5px;'>IMS Recon Pro</div>
+                <div class='sidebar-caption'>GST IMS Suite • Menu</div>
             </div>
         </div>
+        <div style='background:rgba(255,153,51,0.16);border:1px solid rgba(255,153,51,0.42);border-radius:18px;padding:12px 14px;margin:4px 0 16px 0;font-size:18px;font-weight:850;color:#fff;'>☰ MAIN MENU</div>
         """, unsafe_allow_html=True)
 
         pages = [
