@@ -1248,15 +1248,34 @@ def _compact_json_number(value):
 
 def _clean_ims_upload_record(source_item: dict, action_code: str) -> dict:
     """
-    Create one GST IMS upload record using the exact field style visible in
-    the official GST Offline Utility output supplied by the user.
+    Create one GST IMS upload record.
 
-    Very strict rule:
-    - Do not copy all downloaded JSON keys.
-    - Do not include tradenm/hash/remarks/app columns.
-    - Do not include action N records in the final upload JSON.
-    - Keep key order close to official utility output.
+    V6 important correction:
+    - For normal B2B records, the official utility output has common keys.
+    - For amendment sections such as b2ba/b2bdna/b2bcna, GST may require
+      additional original-document fields from the downloaded JSON.
+    - Therefore we preserve all GST-source keys from the original downloaded
+      JSON record except known non-upload/display/internal keys.
+    - This prevents amendment records from losing mandatory fields and causing
+      GST schema validation failure.
     """
+
+    if not isinstance(source_item, dict):
+        source_item = {}
+
+    # Never send these to GST upload JSON. They are either display-only from the
+    # downloaded JSON or internal to this app/reporting layer.
+    blocked_keys = {
+        "tradenm", "tradeNm", "trade_name", "supplier_name", "hash",
+        "remarks", "remark", "comments", "comment",
+        "recommended_action", "final_user_action", "user_remarks",
+        "mismatch_type", "risk_level", "risk_score", "reason",
+        "match_status", "confidence_score", "source", "ims_sheet",
+        "document_norm", "data_quality", "gstin_valid",
+    }
+
+    # Keep GST utility's familiar order first, then append amendment-specific
+    # keys from the source record, preserving their original names.
     preferred_order = [
         "stin", "inum", "inv_typ", "idt", "val", "action", "pos", "txval",
         "iamt", "camt", "samt", "cess", "srcform", "rtnprd", "srcfilstatus",
@@ -1267,12 +1286,20 @@ def _clean_ims_upload_record(source_item: dict, action_code: str) -> dict:
     for key in preferred_order:
         if key == "action":
             out["action"] = action_code
-        elif key in source_item:
+        elif key in source_item and key not in blocked_keys:
             out[key] = _compact_json_number(source_item.get(key))
 
-    # Apply safe defaults only for fields that are numeric/flag style and commonly
-    # mandatory in the official utility output. This prevents blank fields from
-    # creating schema errors while preserving actual invoice identity fields.
+    # Append remaining GST-source keys, e.g. original invoice/date fields in
+    # amendment sections. Do not invent names; keep exactly what GST JSON gave us.
+    for key, value in source_item.items():
+        if key in blocked_keys or key in out or key == "action":
+            continue
+        # Avoid app-created Python helper columns accidentally entering JSON.
+        if str(key).startswith("_"):
+            continue
+        out[key] = _compact_json_number(value)
+
+    # Apply safe defaults only for common numeric/flag fields.
     for tax_key in ["iamt", "camt", "samt", "cess"]:
         out.setdefault(tax_key, 0)
     out.setdefault("ispendactblocked", "N")
@@ -1352,10 +1379,10 @@ def generate_gst_upload_json_from_final_actions(original_json: dict, action_df: 
       "invdata": {"b2b": [ ... ]}
     }
 
-    This V4 generator is strict and GST-utility style:
+    This V6 generator is amendment-safe and GST-utility style:
     - lowercase invdata section keys
     - no imsDetails wrapper
-    - no tradenm/hash/remarks/internal fields
+    - no tradenm/hash/remarks/internal fields, but preserves amendment mandatory fields
     - every original IMS JSON record is actively actioned by default
     - Matched/manual Accepted => A
     - Unmatched/missing/No Action/Review => P (Pending), so records do not remain No Action on portal
