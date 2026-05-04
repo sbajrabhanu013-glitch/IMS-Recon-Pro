@@ -1290,6 +1290,57 @@ def _record_missing_mandatory(upload_item: dict) -> list:
     return missing
 
 
+
+def ims_json_section_counts(original_json: dict) -> pd.DataFrame:
+    """Return section-wise counts from the uploaded GST IMS JSON / generated upload JSON."""
+    section_map = get_json_section_map()
+    rows = []
+    if not isinstance(original_json, dict) or not original_json:
+        return pd.DataFrame(columns=["Section", "Records"])
+    root = original_json.get("imsDetails", original_json.get("invdata", original_json))
+
+    def normalized_section_name(key: str) -> str:
+        raw = str(key or "").strip()
+        norm = raw.lower().replace("_", "").replace("-", "")
+        return section_map.get(norm, raw.lower())
+
+    def walk(obj):
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                norm = str(key).lower().replace("_", "").replace("-", "")
+                if norm in section_map and isinstance(value, list):
+                    rows.append({"Section": normalized_section_name(key), "Records": len(value)})
+                elif isinstance(value, (dict, list)):
+                    walk(value)
+        elif isinstance(obj, list):
+            for item in obj:
+                walk(item)
+
+    walk(root)
+    if not rows:
+        return pd.DataFrame(columns=["Section", "Records"])
+    out = pd.DataFrame(rows).groupby("Section", as_index=False)["Records"].sum()
+    return out.sort_values("Section").reset_index(drop=True)
+
+
+def generated_json_action_counts(json_bytes: bytes) -> pd.DataFrame:
+    """Return section/action counts from the final GST upload JSON bytes."""
+    try:
+        data = json.loads(json_bytes.decode("utf-8") if isinstance(json_bytes, (bytes, bytearray)) else str(json_bytes))
+    except Exception:
+        return pd.DataFrame(columns=["Section", "Action", "Records"])
+    rows = []
+    invdata = data.get("invdata", {}) if isinstance(data, dict) else {}
+    if isinstance(invdata, dict):
+        for section, records in invdata.items():
+            if isinstance(records, list):
+                for rec in records:
+                    if isinstance(rec, dict):
+                        rows.append({"Section": section, "Action": rec.get("action", ""), "Records": 1})
+    if not rows:
+        return pd.DataFrame(columns=["Section", "Action", "Records"])
+    return pd.DataFrame(rows).groupby(["Section", "Action"], as_index=False)["Records"].sum()
+
 def generate_gst_upload_json_from_final_actions(original_json: dict, action_df: pd.DataFrame) -> Tuple[bytes, pd.DataFrame]:
     """
     Generate GST Portal IMS upload JSON in official utility style.
@@ -2225,12 +2276,20 @@ def reports_page():
 
     with c2:
         st.markdown("<div class='panel'><div class='panel-title'>🧬 Final GST Portal Upload JSON</div>", unsafe_allow_html=True)
-        st.caption("This generates official GST utility-style upload JSON: rtin + reqtyp SAVE + invdata. No Action records are skipped; Accepted/Pending/Rejected are uploaded.")
+        st.caption("This generates official GST utility-style upload JSON: rtin + reqtyp SAVE + invdata. Accepted/Pending/Rejected are uploaded in GST schema format.")
         if not st.session_state.ims_json_data:
             st.warning("Please upload/process IMS JSON first.")
         elif action.empty:
             st.warning("Please run reconciliation and save final actions first.")
         else:
+            source_counts = ims_json_section_counts(st.session_state.ims_json_data)
+            if not source_counts.empty:
+                st.markdown("**Uploaded IMS JSON section count**")
+                st.dataframe(source_counts, use_container_width=True, hide_index=True)
+                sections = set(source_counts["Section"].astype(str).str.lower())
+                if "b2ba" not in sections:
+                    st.info("Your uploaded source JSON does not contain B2B amendment section `b2ba`. If GST portal shows amendment records, download a fresh IMS JSON from portal and upload it again before generating final JSON.")
+
             if st.button("⚙️ Generate Final GST Upload JSON", type="primary", use_container_width=True):
                 try:
                     json_bytes, summary = generate_gst_upload_json_from_final_actions(st.session_state.ims_json_data, st.session_state.action_df)
@@ -2243,6 +2302,10 @@ def reports_page():
                     st.error(f"Unable to generate final JSON: {e}")
 
             if st.session_state.final_json_bytes:
+                action_counts = generated_json_action_counts(st.session_state.final_json_bytes)
+                if not action_counts.empty:
+                    st.markdown("**Generated GST upload JSON action count**")
+                    st.dataframe(action_counts, use_container_width=True, hide_index=True)
                 st.download_button(
                     "⬇️ Download Final GST Portal Upload JSON",
                     data=st.session_state.final_json_bytes,
