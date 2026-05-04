@@ -17,7 +17,7 @@ from openpyxl.styles import PatternFill, Font
 
 # =========================================================
 # IMS RECON PRO — FULL WORKING VERSION
-# Premium UI + Login + Upload + IMS Utility/JSON + Reco + Action + Export + DB
+# Premium UI + Login + Purchase Register + IMS JSON + Reco + Action + Final GST JSON
 # Copyright @BAJRABHANU
 # =========================================================
 
@@ -968,7 +968,7 @@ def write_row_values(ws, row: int, values: dict):
 
 def populate_ims_utility_xlsm(template_bytes: bytes, records: List[dict], recon: pd.DataFrame) -> bytes:
     if not template_bytes:
-        raise ValueError("Please upload IMS Offline Utility .xlsm template first.")
+        raise ValueError("Please upload Inbuilt IMS Utility .xlsm template first.")
     if not records:
         raise ValueError("Please upload/process IMS JSON first.")
 
@@ -1097,9 +1097,9 @@ def utility_sheet_config() -> Dict[str, dict]:
 
 
 def read_action_status_from_utility_xlsm(xlsm_bytes: bytes) -> Tuple[dict, pd.DataFrame]:
-    """Read final action/status selected by user from IMS Offline Utility .xlsm."""
+    """Read final action/status selected by user from Inbuilt IMS Utility .xlsm."""
     if not xlsm_bytes:
-        raise ValueError("Please upload the final/edited IMS Utility .xlsm file first.")
+        raise ValueError("Please upload the final/edited IMS JSON file first.")
     wb = load_workbook(BytesIO(xlsm_bytes), keep_vba=True, data_only=False)
     action_map = {}
     rows = []
@@ -1154,7 +1154,7 @@ def update_ims_json_actions_from_utility(original_json: dict, action_map: dict) 
     if not isinstance(original_json, dict) or not original_json:
         raise ValueError("Original IMS JSON is not available. Please process IMS JSON first.")
     if not action_map:
-        raise ValueError("No status/action found in the uploaded IMS Utility .xlsm.")
+        raise ValueError("No status/action found in the uploaded IMS JSON.")
 
     data = deepcopy(original_json)
     section_map = get_json_section_map()
@@ -1199,6 +1199,78 @@ def generate_gst_upload_json_bytes(original_json: dict, final_xlsm_bytes: bytes)
     updated_json, updated_summary = update_ims_json_actions_from_utility(original_json, action_map)
     json_bytes = json.dumps(updated_json, ensure_ascii=False, indent=2).encode("utf-8")
     return json_bytes, utility_status_df, updated_summary
+
+
+
+def generate_gst_upload_json_from_final_actions(original_json: dict, action_df: pd.DataFrame) -> Tuple[bytes, pd.DataFrame]:
+    """
+    New final workflow:
+    Original GST IMS JSON + in-app final_user_action/remarks
+    -> preserve original JSON structure and update action field.
+    No XLSM utility upload/download is required.
+    """
+    if not isinstance(original_json, dict) or not original_json:
+        raise ValueError("Original IMS JSON is not available. Please process IMS JSON first.")
+    if action_df is None or action_df.empty:
+        raise ValueError("Final action table is empty. Please run reconciliation and save final actions first.")
+
+    action_map = {}
+    remarks_map = {}
+    for _, row in action_df.iterrows():
+        gstin = normalize_gstin(row.get("supplier_gstin", ""))
+        doc_norm = normalize_doc_no(row.get("document_norm", ""))
+        action = normalize_action_label(row.get("final_user_action", row.get("recommended_action", "Pending")))
+        remarks = str(row.get("user_remarks", "") or "")
+        section = str(row.get("ims_sheet_ims", row.get("ims_sheet", "")) or "")
+        if gstin and doc_norm:
+            action_map[(gstin, doc_norm)] = action
+            if section:
+                action_map[(section, gstin, doc_norm)] = action
+            remarks_map[(gstin, doc_norm)] = remarks
+
+    data = deepcopy(original_json)
+    section_map = get_json_section_map()
+    updated_rows = []
+
+    def walk(obj):
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                normalized_key = str(k).lower().replace("_", "").replace("-", "")
+                if normalized_key in section_map and isinstance(v, list):
+                    section = section_map[normalized_key]
+                    for item in v:
+                        if not isinstance(item, dict):
+                            continue
+                        gstin = normalize_gstin(get_json_value(item, "stin", "ctin", "supplier_gstin"))
+                        doc_no = get_json_value(item, "inum", "nt_num", "document_no", "oinum")
+                        doc_norm = normalize_doc_no(doc_no)
+                        status = action_map.get((section, gstin, doc_norm)) or action_map.get((gstin, doc_norm)) or "Pending"
+                        code = action_label_to_gst_code(status)
+                        item["action"] = code
+                        remarks = remarks_map.get((gstin, doc_norm), "")
+                        # Remarks are added only if GST JSON already supports a remarks/remark key.
+                        # This avoids adding unsupported fields that could be rejected by GST portal.
+                        if remarks and "remarks" in item:
+                            item["remarks"] = remarks
+                        elif remarks and "remark" in item:
+                            item["remark"] = remarks
+                        updated_rows.append({
+                            "Section": section,
+                            "Supplier GSTIN": gstin,
+                            "Document No": doc_no,
+                            "Final Action": status,
+                            "GST JSON Action Code": code,
+                            "User Remarks": remarks,
+                        })
+                else:
+                    walk(v)
+        elif isinstance(obj, list):
+            for item in obj:
+                walk(item)
+
+    walk(data)
+    json_bytes = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+    return json_bytes, pd.DataFrame(updated_rows)
 
 
 def aggregate(df: pd.DataFrame, label: str) -> pd.DataFrame:
@@ -1700,10 +1772,10 @@ def client_setup_page():
 
 
 def upload_center_page():
-    page_title("Upload Center", "Upload Purchase Register, IMS JSON and IMS Offline Utility .xlsm template.")
+    page_title("Upload Center", "Upload Purchase Register and GST IMS JSON only. The GST utility is now built inside this app.")
 
     st.markdown("### Step 1 — Upload source files")
-    c1, c2, c3 = st.columns(3)
+    c1, c2 = st.columns(2)
 
     with c1:
         st.markdown("<div class='panel'><div class='panel-title'>📚 Purchase Register</div>", unsafe_allow_html=True)
@@ -1712,7 +1784,11 @@ def upload_center_page():
             try:
                 df = read_purchase_file(file)
                 st.session_state.purchase_df = df
-                save_user_state(["purchase_df"])
+                st.session_state.recon_df = pd.DataFrame()
+                st.session_state.action_df = pd.DataFrame()
+                st.session_state.final_json_bytes = b""
+                st.session_state.final_json_summary = pd.DataFrame()
+                save_user_state(["purchase_df", "recon_df", "action_df", "final_json_bytes", "final_json_summary"])
                 log_event("Upload", f"Purchase Register uploaded: {len(df):,} rows")
                 st.success(f"Purchase Register processed: {len(df):,} rows.")
             except Exception as e:
@@ -1720,7 +1796,7 @@ def upload_center_page():
         st.markdown("</div>", unsafe_allow_html=True)
 
     with c2:
-        st.markdown("<div class='panel'><div class='panel-title'>🧬 IMS JSON</div>", unsafe_allow_html=True)
+        st.markdown("<div class='panel'><div class='panel-title'>🧬 GST IMS JSON</div>", unsafe_allow_html=True)
         json_file = st.file_uploader("Upload IMS JSON downloaded from GST Portal", type=["json"], key="ims_json_upload")
         if json_file and st.button("Process IMS JSON", use_container_width=True):
             try:
@@ -1733,32 +1809,20 @@ def upload_center_page():
                 st.session_state.ims_json_bytes = raw_bytes
                 st.session_state.final_json_bytes = b""
                 st.session_state.final_json_summary = pd.DataFrame()
+                st.session_state.recon_df = pd.DataFrame()
+                st.session_state.action_df = pd.DataFrame()
                 if isinstance(data, dict) and data.get("rtin"):
                     st.session_state.client_gstin = normalize_gstin(data.get("rtin"))
-                save_user_state(["ims_df", "ims_source", "ims_json_records", "ims_json_data", "ims_json_bytes", "final_json_bytes", "final_json_summary", "client_gstin"])
+                save_user_state(["ims_df", "ims_source", "ims_json_records", "ims_json_data", "ims_json_bytes", "final_json_bytes", "final_json_summary", "client_gstin", "recon_df", "action_df"])
                 log_event("Upload", f"IMS JSON uploaded: {len(df):,} rows")
                 st.success(f"IMS JSON processed: {len(df):,} rows.")
             except Exception as e:
                 st.error(f"Unable to process IMS JSON: {e}")
         st.markdown("</div>", unsafe_allow_html=True)
 
-    with c3:
-        st.markdown("<div class='panel'><div class='panel-title'>🧾 IMS Offline Utility Template</div>", unsafe_allow_html=True)
-        util_file = st.file_uploader("Upload blank IMS Offline Utility (.xlsm)", type=["xlsm"], key="ims_util_template_upload")
-        st.caption("This file will be populated with JSON records and auto actions in Status column.")
-        if util_file and st.button("Save IMS Utility Template", use_container_width=True):
-            try:
-                st.session_state.ims_template_bytes = util_file.getvalue()
-                save_user_state(["ims_template_bytes"])
-                log_event("Upload", "IMS utility template saved")
-                st.success("IMS Offline Utility template saved.")
-            except Exception as e:
-                st.error(f"Unable to save IMS Utility template: {e}")
-        st.markdown("</div>", unsafe_allow_html=True)
-
     st.markdown("---")
-    st.markdown("### Step 2 — Run reconciliation and prepare IMS Utility actions")
-    st.info("Process: Purchase Register + IMS JSON → reconciliation outside utility → auto-fill IMS .xlsm Status column. Matched = Accepted, Unmatched = Pending.")
+    st.markdown("### Step 2 — Reconcile inside the app")
+    st.info("Final process: Purchase Register + IMS JSON → in-app reconciliation → in-app action/remarks → final GST upload JSON. No .xlsm utility is required.")
 
     c4, c5, c6 = st.columns(3)
     with c4:
@@ -1766,106 +1830,29 @@ def upload_center_page():
     with c5:
         st.session_state.date_tolerance = st.number_input("Date tolerance days", min_value=0, value=int(st.session_state.date_tolerance), step=1, key="upload_date_tol")
     with c6:
-        st.session_state.include_amendments = st.checkbox("Include amendment sheets", value=bool(st.session_state.include_amendments), key="upload_include_amend")
+        st.session_state.include_amendments = st.checkbox("Include amendment records", value=bool(st.session_state.include_amendments), key="upload_include_amend")
 
     ready_reco = not st.session_state.purchase_df.empty and not st.session_state.ims_df.empty
-    ready_xlsm = ready_reco and bool(st.session_state.ims_template_bytes) and bool(st.session_state.ims_json_records)
-
-    b1, b2 = st.columns(2)
-    with b1:
-        if st.button("🚀 Run Reconciliation from JSON", type="primary", use_container_width=True, disabled=not ready_reco):
-            with st.spinner("Reconciling Purchase Register with IMS JSON..."):
-                recon = calculate_recon(
-                    st.session_state.purchase_df,
-                    st.session_state.ims_df,
-                    st.session_state.amount_tolerance,
-                    st.session_state.date_tolerance,
-                    st.session_state.include_amendments,
-                )
-                recon["final_user_action"] = recon["mismatch_type"].apply(lambda x: "Accepted" if x == "Matched" else "Pending")
-                st.session_state.recon_df = recon
-                st.session_state.action_df = recon.copy()
-                save_user_state(["recon_df", "action_df"])
-                log_event("Reconciliation", f"JSON reconciliation completed: {len(recon):,} rows")
-            st.success(f"Reconciliation completed: {len(st.session_state.recon_df):,} rows.")
-    with b2:
-        if st.button("📌 Generate Auto-Filled IMS Utility .xlsm", use_container_width=True, disabled=not ready_xlsm):
-            try:
-                if st.session_state.recon_df.empty:
-                    recon = calculate_recon(
-                        st.session_state.purchase_df,
-                        st.session_state.ims_df,
-                        st.session_state.amount_tolerance,
-                        st.session_state.date_tolerance,
-                        st.session_state.include_amendments,
-                    )
-                    recon["final_user_action"] = recon["mismatch_type"].apply(lambda x: "Accepted" if x == "Matched" else "Pending")
-                    st.session_state.recon_df = recon
-                    st.session_state.action_df = recon.copy()
-                output = populate_ims_utility_xlsm(st.session_state.ims_template_bytes, st.session_state.ims_json_records, st.session_state.recon_df)
-                st.session_state.ims_auto_xlsm_bytes = output
-                save_user_state(["ims_auto_xlsm_bytes", "recon_df", "action_df"])
-                log_event("IMS Utility", "Auto-filled IMS utility generated")
-                st.success("Auto-filled IMS Utility generated successfully.")
-            except Exception as e:
-                st.error(f"Unable to generate IMS Utility: {e}")
-
-    if st.session_state.ims_auto_xlsm_bytes:
-        st.download_button(
-            "⬇️ Download Auto-Filled IMS Utility .xlsm",
-            data=st.session_state.ims_auto_xlsm_bytes,
-            file_name=f"IMS_Utility_Auto_Action_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsm",
-            mime="application/vnd.ms-excel.sheet.macroEnabled.12",
-            use_container_width=True,
-        )
-
-    st.markdown("---")
-    st.markdown("### Step 3 — Generate GST Portal Upload JSON from final IMS Utility status")
-    st.info("After checking/changing the Status column in the generated .xlsm utility, upload that final .xlsm here. The app will read the Status column and regenerate JSON with action codes for GST portal upload: Accepted=A, Pending=P, Rejected=R, No Action=N.")
-
-    j1, j2 = st.columns([1.35, 1])
-    with j1:
-        final_util = st.file_uploader("Upload final/edited IMS Utility with Status actions (.xlsm)", type=["xlsm"], key="final_action_utility_upload")
-        if final_util and st.button("🧾 Read Status Column & Generate GST Upload JSON", type="primary", use_container_width=True):
-            try:
-                st.session_state.final_action_xlsm_bytes = final_util.getvalue()
-                if not st.session_state.ims_json_data:
-                    raise ValueError("Please process the original IMS JSON first, because the final upload JSON must preserve the same GST portal structure.")
-                json_bytes, utility_status_df, updated_summary = generate_gst_upload_json_bytes(
-                    st.session_state.ims_json_data,
-                    st.session_state.final_action_xlsm_bytes,
-                )
-                st.session_state.final_json_bytes = json_bytes
-                st.session_state.final_json_summary = updated_summary
-                save_user_state(["final_action_xlsm_bytes", "final_json_bytes", "final_json_summary"])
-                log_event("GST JSON", f"Final GST upload JSON generated: {len(updated_summary):,} records updated")
-                st.success(f"GST upload JSON generated successfully. Updated records: {len(updated_summary):,}")
-                if not utility_status_df.empty:
-                    st.markdown("#### Status read from utility")
-                    show_df(utility_status_df.groupby(["Sheet", "Utility Status", "GST JSON Action Code"], dropna=False).size().reset_index(name="Records"), 100)
-            except Exception as e:
-                st.error(f"Unable to generate GST upload JSON: {e}")
-
-    with j2:
-        st.markdown("<div class='panel'><div class='panel-title'>Final JSON Action Mapping</div>", unsafe_allow_html=True)
-        st.write("Accepted → A")
-        st.write("Pending → P")
-        st.write("Rejected → R")
-        st.write("No Action → N")
-        st.caption("This keeps the original JSON format and updates only the action values based on the utility Status column.")
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    if st.session_state.final_json_bytes:
-        st.download_button(
-            "⬇️ Download Final GST Portal Upload JSON",
-            data=st.session_state.final_json_bytes,
-            file_name=f"IMS_Final_Action_Upload_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
-            mime="application/json",
-            use_container_width=True,
-        )
-        if isinstance(st.session_state.final_json_summary, pd.DataFrame) and not st.session_state.final_json_summary.empty:
-            st.markdown("#### Final JSON Update Summary")
-            show_df(st.session_state.final_json_summary.groupby(["Sheet", "Utility Status", "GST JSON Action Code"], dropna=False).size().reset_index(name="Records"), 100)
+    if st.button("🚀 Run Reconciliation from JSON", type="primary", use_container_width=True, disabled=not ready_reco):
+        with st.spinner("Reconciling Purchase Register with IMS JSON..."):
+            recon = calculate_recon(
+                st.session_state.purchase_df,
+                st.session_state.ims_df,
+                st.session_state.amount_tolerance,
+                st.session_state.date_tolerance,
+                st.session_state.include_amendments,
+            )
+            # As per final business rule:
+            # Matched = Accepted, Unmatched/Mismatch = Pending. User may manually change later.
+            recon["final_user_action"] = recon["mismatch_type"].apply(lambda x: "Accepted" if x == "Matched" else "Pending")
+            recon["json_action_code"] = recon["final_user_action"].apply(action_label_to_gst_code)
+            st.session_state.recon_df = recon
+            st.session_state.action_df = recon.copy()
+            st.session_state.final_json_bytes = b""
+            st.session_state.final_json_summary = pd.DataFrame()
+            save_user_state(["recon_df", "action_df", "final_json_bytes", "final_json_summary"])
+            log_event("Reconciliation", f"JSON reconciliation completed: {len(recon):,} rows")
+        st.success(f"Reconciliation completed: {len(st.session_state.recon_df):,} rows. Now go to Action Center to review/edit actions and remarks.")
 
     st.markdown("---")
     page_title("Data Health Check", "Upload status and quality summary.")
@@ -1881,10 +1868,13 @@ def upload_center_page():
         invalid = int((~ims["gstin_valid"]).sum()) if not ims.empty and "gstin_valid" in ims else 0
         metric_card("🛡️", "IMS Invalid GSTIN", f"{invalid:,}", "", "#edf4ff", "#4d8df7")
 
-    if not ims.empty:
-        st.markdown("### IMS JSON Preview")
-        show_df(ims.head(50))
-
+    tabs = st.tabs(["Purchase Preview", "IMS JSON Preview", "Reconciliation Preview"])
+    with tabs[0]:
+        show_df(st.session_state.purchase_df.head(100))
+    with tabs[1]:
+        show_df(st.session_state.ims_df.head(100))
+    with tabs[2]:
+        show_df(st.session_state.recon_df.head(100))
 
 def ims_data_viewer_page():
     page_title("IMS Data Viewer", "Review uploaded and standardized data before reconciliation.")
@@ -1987,10 +1977,13 @@ def action_center_page():
         for col in ["final_user_action", "user_remarks"]:
             if col in edited.columns:
                 updated.loc[edited.index, col] = edited[col].values
+        updated["json_action_code"] = updated["final_user_action"].apply(action_label_to_gst_code)
         st.session_state.action_df = updated
-        save_user_state(["action_df"])
-        log_event("Action Center", "Final user actions updated")
-        st.success("Final actions saved.")
+        st.session_state.final_json_bytes = b""
+        st.session_state.final_json_summary = pd.DataFrame()
+        save_user_state(["action_df", "final_json_bytes", "final_json_summary"])
+        log_event("Action Center", "Final user actions and remarks updated")
+        st.success("Final actions and remarks saved. Now go to Reports & Export to generate the final GST upload JSON.")
 
 
 def risk_center_page():
@@ -2050,34 +2043,76 @@ Regards,
 
 
 def reports_page():
-    page_title("Reports & Export", "Download IMS reconciliation and action reports.")
+    page_title("Reports & Final GST Upload JSON", "Download reports and generate the final JSON after action/remarks are finalized.")
     p, ims, recon, action = st.session_state.purchase_df, st.session_state.ims_df, st.session_state.recon_df, st.session_state.action_df
-    sheets = {
-        "Final Action Report": action,
-        "Reconciliation": recon,
-        "Summary": recon_summary(recon),
-        "Purchase Standardized": p,
-        "IMS Standardized": ims,
-        "Audit Log": load_audit(st.session_state.username),
-    }
-    st.download_button(
-        "📥 Download Complete IMS Workpaper",
-        data=to_excel_bytes(sheets),
-        file_name=f"IMS_Recon_Pro_Workpaper_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True,
-    )
-    st.markdown("### Available Reports")
-    report_rows = [
-        ["Final IMS Action Report", len(action)],
-        ["Reconciliation Report", len(recon)],
-        ["Accepted Report", int((action["final_user_action"] == "Accepted").sum()) if not action.empty else 0],
-        ["Pending Report", int((action["final_user_action"] == "Pending").sum()) if not action.empty else 0],
-        ["Rejected Report", int((action["final_user_action"] == "Rejected").sum()) if not action.empty else 0],
-        ["Vendor Follow-up Report", int((recon["vendor_followup_required"] == True).sum()) if not recon.empty else 0],
-    ]
-    show_df(pd.DataFrame(report_rows, columns=["Report", "Records"]), 20)
 
+    c1, c2 = st.columns([1, 1])
+    with c1:
+        st.markdown("<div class='panel'><div class='panel-title'>📊 Complete Excel Workpaper</div>", unsafe_allow_html=True)
+        sheets = {
+            "Final Action Report": action,
+            "Reconciliation": recon,
+            "Summary": recon_summary(recon),
+            "Purchase Standardized": p,
+            "IMS JSON Standardized": ims,
+            "Audit Log": load_audit(st.session_state.username),
+        }
+        st.download_button(
+            "📥 Download Complete IMS Workpaper",
+            data=to_excel_bytes(sheets),
+            file_name=f"IMS_JSON_Recon_Workpaper_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with c2:
+        st.markdown("<div class='panel'><div class='panel-title'>🧬 Final GST Portal Upload JSON</div>", unsafe_allow_html=True)
+        st.caption("This uses the original GST IMS JSON structure and updates only invoice-wise action values from the Action Center.")
+        if not st.session_state.ims_json_data:
+            st.warning("Please upload/process IMS JSON first.")
+        elif action.empty:
+            st.warning("Please run reconciliation and save final actions first.")
+        else:
+            if st.button("⚙️ Generate Final GST Upload JSON", type="primary", use_container_width=True):
+                try:
+                    json_bytes, summary = generate_gst_upload_json_from_final_actions(st.session_state.ims_json_data, st.session_state.action_df)
+                    st.session_state.final_json_bytes = json_bytes
+                    st.session_state.final_json_summary = summary
+                    save_user_state(["final_json_bytes", "final_json_summary"])
+                    log_event("GST JSON", f"Final GST upload JSON generated: {len(summary):,} records")
+                    st.success(f"Final GST upload JSON generated. Records updated: {len(summary):,}")
+                except Exception as e:
+                    st.error(f"Unable to generate final JSON: {e}")
+
+            if st.session_state.final_json_bytes:
+                st.download_button(
+                    "⬇️ Download Final GST Portal Upload JSON",
+                    data=st.session_state.final_json_bytes,
+                    file_name=f"IMS_Final_Action_Upload_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
+                    mime="application/json",
+                    use_container_width=True,
+                )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.markdown("### Final Action Summary")
+    if action.empty:
+        st.info("No final action report available yet.")
+    else:
+        report_rows = [
+            ["Final IMS Action Report", len(action)],
+            ["Reconciliation Report", len(recon)],
+            ["Accepted / JSON A", int((action["final_user_action"] == "Accepted").sum()) if not action.empty else 0],
+            ["Pending / JSON P", int((action["final_user_action"] == "Pending").sum()) if not action.empty else 0],
+            ["Rejected / JSON R", int((action["final_user_action"] == "Rejected").sum()) if not action.empty else 0],
+            ["No Action / JSON N", int((action["final_user_action"] == "No Action").sum()) if not action.empty else 0],
+        ]
+        show_df(pd.DataFrame(report_rows, columns=["Report", "Records"]), 20)
+
+    if isinstance(st.session_state.final_json_summary, pd.DataFrame) and not st.session_state.final_json_summary.empty:
+        st.markdown("### Final JSON Update Summary")
+        show_df(st.session_state.final_json_summary.groupby(["Section", "Final Action", "GST JSON Action Code"], dropna=False).size().reset_index(name="Records"), 100)
 
 def ai_insight_page():
     page_title("AI Insight Desk", "Rule-based smart GST IMS insights without external API.")
@@ -2129,7 +2164,7 @@ def generate_ai_insight(long: bool = False) -> str:
         + f"- {only_ims:,} documents are appearing in IMS but not in Purchase Register.\n"
         + f"- {only_purchase:,} documents are booked in Purchase Register but not found in IMS.\n"
         + "- Accept matched invoices first, keep value/tax mismatch cases pending, and send vendor follow-up for books-only cases.\n"
-        + "- Review credit notes and amendment sheets separately before final upload through GST utility."
+        + "- Review credit notes and amendment sheets separately before final upload through final GST upload JSON."
     )
 
 
@@ -2200,7 +2235,7 @@ def main():
         <div style='display:flex;justify-content:space-around;gap:20px;flex-wrap:wrap;'>
             <div class='foot-item'><div style='font-size:26px;'>🛡️</div><div><div class='foot-main'>Secure</div><div class='foot-sub'>Enterprise-grade control</div></div></div>
             <div class='foot-item'><div style='font-size:26px;'>✅</div><div><div class='foot-main'>Compliant</div><div class='foot-sub'>GSTN workflow aligned</div></div></div>
-            <div class='foot-item'><div style='font-size:26px;'>🔄</div><div><div class='foot-main'>Reliable</div><div class='foot-sub'>Offline + export ready</div></div></div>
+            <div class='foot-item'><div style='font-size:26px;'>🔄</div><div><div class='foot-main'>Reliable</div><div class='foot-sub'>JSON + export ready</div></div></div>
             <div class='foot-item'><div style='font-size:26px;'>✨</div><div><div class='foot-main'>Smart</div><div class='foot-sub'>AI-like insights</div></div></div>
         </div>
     </div>
