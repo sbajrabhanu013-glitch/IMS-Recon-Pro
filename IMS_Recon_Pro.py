@@ -1204,10 +1204,14 @@ def generate_gst_upload_json_bytes(original_json: dict, final_xlsm_bytes: bytes)
 
 def generate_gst_upload_json_from_final_actions(original_json: dict, action_df: pd.DataFrame) -> Tuple[bytes, pd.DataFrame]:
     """
-    New final workflow:
-    Original GST IMS JSON + in-app final_user_action/remarks
-    -> preserve original JSON structure and update action field.
-    No XLSM utility upload/download is required.
+    GST-portal safe final workflow:
+    - Use original downloaded IMS JSON as source of truth.
+    - Do NOT upload a full mirror copy of the downloaded JSON.
+    - Create an upload JSON containing only records where final action/remarks changed.
+    - Update only GST-supported fields: action and, where entered, remarks.
+
+    This follows the IMS offline tool behaviour where generated upload JSON contains
+    delta/action records, and if no records are changed the generated JSON is empty.
     """
     if not isinstance(original_json, dict) or not original_json:
         raise ValueError("Original IMS JSON is not available. Please process IMS JSON first.")
@@ -1216,60 +1220,112 @@ def generate_gst_upload_json_from_final_actions(original_json: dict, action_df: 
 
     action_map = {}
     remarks_map = {}
+
     for _, row in action_df.iterrows():
         gstin = normalize_gstin(row.get("supplier_gstin", ""))
         doc_norm = normalize_doc_no(row.get("document_norm", ""))
+        if not gstin or not doc_norm:
+            continue
         action = normalize_action_label(row.get("final_user_action", row.get("recommended_action", "Pending")))
-        remarks = str(row.get("user_remarks", "") or "")
-        section = str(row.get("ims_sheet_ims", row.get("ims_sheet", "")) or "")
-        if gstin and doc_norm:
-            action_map[(gstin, doc_norm)] = action
+        remarks = str(row.get("user_remarks", "") or "").strip()
+        section = str(row.get("ims_sheet_ims", row.get("ims_sheet", "")) or "").strip()
+        action_map[(gstin, doc_norm)] = action
+        if section:
+            action_map[(section, gstin, doc_norm)] = action
+        if remarks:
+            remarks_map[(gstin, doc_norm)] = remarks[:250]
             if section:
-                action_map[(section, gstin, doc_norm)] = action
-            remarks_map[(gstin, doc_norm)] = remarks
+                remarks_map[(section, gstin, doc_norm)] = remarks[:250]
 
-    data = deepcopy(original_json)
     section_map = get_json_section_map()
     updated_rows = []
 
-    def walk(obj):
+    def process_section(section_key: str, rows: list):
+        section = section_map.get(str(section_key).lower().replace("_", "").replace("-", ""), str(section_key))
+        changed = []
+        for item in rows:
+            if not isinstance(item, dict):
+                continue
+            gstin = normalize_gstin(get_json_value(item, "stin", "ctin", "supplier_gstin"))
+            doc_no = get_json_value(item, "inum", "nt_num", "document_no", "oinum")
+            doc_norm = normalize_doc_no(doc_no)
+            if not gstin or not doc_norm:
+                continue
+
+            status = action_map.get((section, gstin, doc_norm)) or action_map.get((gstin, doc_norm))
+            if not status:
+                # If the invoice is not in our final action table, do not touch it.
+                continue
+
+            new_code = action_label_to_gst_code(status)
+            old_code = str(item.get("action", "N") or "N").strip().upper()
+            remarks = remarks_map.get((section, gstin, doc_norm)) or remarks_map.get((gstin, doc_norm), "")
+
+            # GST offline tool generates upload JSON only for changed/actioned records.
+            # No Action with original N and no remarks should not be exported.
+            if new_code == old_code and not remarks:
+                continue
+
+            new_item = deepcopy(item)
+            new_item["action"] = new_code
+
+            # Remarks are supported by IMS utility, but should be limited to 250 characters.
+            # Add only when user entered remarks and remarks are not blocked.
+            if remarks and str(new_item.get("isRemarksBlocked", new_item.get("isremarksblocked", "N"))).upper() != "Y":
+                new_item["remarks"] = remarks[:250]
+
+            changed.append(new_item)
+            updated_rows.append({
+                "Section": section,
+                "Supplier GSTIN": gstin,
+                "Document No": doc_no,
+                "Previous GST Action Code": old_code,
+                "Final Action": status,
+                "GST JSON Action Code": new_code,
+                "User Remarks": remarks,
+            })
+        return changed
+
+    def prune(obj):
         if isinstance(obj, dict):
+            out = {}
             for k, v in obj.items():
                 normalized_key = str(k).lower().replace("_", "").replace("-", "")
                 if normalized_key in section_map and isinstance(v, list):
-                    section = section_map[normalized_key]
+                    changed_rows = process_section(k, v)
+                    if changed_rows:
+                        out[k] = changed_rows
+                elif isinstance(v, dict):
+                    child = prune(v)
+                    if child:
+                        out[k] = child
+                elif isinstance(v, list):
+                    # Preserve only non-section lists if they contain non-empty child changes.
+                    child_list = []
                     for item in v:
-                        if not isinstance(item, dict):
-                            continue
-                        gstin = normalize_gstin(get_json_value(item, "stin", "ctin", "supplier_gstin"))
-                        doc_no = get_json_value(item, "inum", "nt_num", "document_no", "oinum")
-                        doc_norm = normalize_doc_no(doc_no)
-                        status = action_map.get((section, gstin, doc_norm)) or action_map.get((gstin, doc_norm)) or "Pending"
-                        code = action_label_to_gst_code(status)
-                        item["action"] = code
-                        remarks = remarks_map.get((gstin, doc_norm), "")
-                        # Remarks are added only if GST JSON already supports a remarks/remark key.
-                        # This avoids adding unsupported fields that could be rejected by GST portal.
-                        if remarks and "remarks" in item:
-                            item["remarks"] = remarks
-                        elif remarks and "remark" in item:
-                            item["remark"] = remarks
-                        updated_rows.append({
-                            "Section": section,
-                            "Supplier GSTIN": gstin,
-                            "Document No": doc_no,
-                            "Final Action": status,
-                            "GST JSON Action Code": code,
-                            "User Remarks": remarks,
-                        })
+                        child = prune(item) if isinstance(item, dict) else None
+                        if child:
+                            child_list.append(child)
+                    if child_list:
+                        out[k] = child_list
                 else:
-                    walk(v)
-        elif isinstance(obj, list):
-            for item in obj:
-                walk(item)
+                    # Preserve root/master metadata required by portal, e.g. rtin.
+                    if str(k).lower() in {"rtin", "gstin", "fp", "rtnprd"}:
+                        out[k] = v
+            return out
+        return {}
 
-    walk(data)
-    json_bytes = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+    upload_json = prune(original_json)
+
+    # Ensure mandatory-looking wrapper keys from downloaded IMS JSON remain available.
+    if "rtin" in original_json and "rtin" not in upload_json:
+        upload_json = {"rtin": original_json.get("rtin"), **upload_json}
+    if "imsDetails" in original_json and "imsDetails" not in upload_json:
+        # No changed records. Create empty imsDetails wrapper instead of full source copy.
+        upload_json.setdefault("imsDetails", {})
+
+    # Compact JSON similar to GST utility output; no additional debug/meta keys.
+    json_bytes = json.dumps(upload_json, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     return json_bytes, pd.DataFrame(updated_rows)
 
 
