@@ -25,7 +25,7 @@ APP_TITLE = "IMS Recon Pro"
 APP_TAGLINE = "Intelligent GST IMS Reconciliation & Action Management Platform"
 COPYRIGHT_OWNER = "@BAJRABHANU"
 APP_DB = "ims_recon_pro.db"
-ENGINE_VERSION = "2026.05.01"
+ENGINE_VERSION = "2026.05.04-V7"
 
 IMS_SHEETS = ["B2B", "B2BA", "B2B-DN", "B2B-DNA", "B2B-CN", "B2B-CNA"]
 ACTION_VALUES = ["No Action", "Accepted", "Rejected", "Pending", "Review"]
@@ -1508,6 +1508,186 @@ def generate_gst_upload_json_from_final_actions(original_json: dict, action_df: 
     return json_bytes, summary
 
 
+
+# =========================================================
+# V7 STRONGER RECONCILIATION + VALIDATION HELPERS
+# =========================================================
+
+def safe_float_value(value) -> float:
+    try:
+        if pd.isna(value):
+            return 0.0
+        return float(value)
+    except Exception:
+        return 0.0
+
+
+def approx_equal(a, b, tolerance: float) -> bool:
+    return abs(safe_float_value(a) - safe_float_value(b)) <= float(tolerance or 0)
+
+
+def date_gap_days(a, b) -> Optional[int]:
+    da = pd.to_datetime(a, errors="coerce")
+    db = pd.to_datetime(b, errors="coerce")
+    if pd.isna(da) or pd.isna(db):
+        return None
+    return int(abs((da - db).days))
+
+
+def is_credit_note_text(value) -> bool:
+    text = str(value or "").lower()
+    return any(x in text for x in ["credit", "cn", "cdn", "b2b-cn", "b2bcna"])
+
+
+def make_recon_key(gstin, doc_norm) -> str:
+    return f"{normalize_gstin(gstin)}|{normalize_doc_no(doc_norm)}"
+
+
+def enhance_recon_row(row, amount_tol: float, date_tol: int) -> pd.Series:
+    """Classify exact key matches using amount, tax-head and date checks."""
+    merge_status = str(row.get("_merge", ""))
+    if merge_status == "left_only":
+        row["mismatch_type"] = "Only in Purchase Register"
+        row["match_level"] = "L0 Not in IMS"
+        return row
+    if merge_status == "right_only":
+        row["mismatch_type"] = "Only in IMS"
+        row["match_level"] = "L0 Not in Purchase Register"
+        return row
+
+    amount_ok = (
+        abs(safe_float_value(row.get("taxable_value_diff"))) <= amount_tol
+        and abs(safe_float_value(row.get("total_tax_diff"))) <= amount_tol
+        and abs(safe_float_value(row.get("invoice_value_diff"))) <= max(amount_tol, 1)
+    )
+    tax_head_ok = all(abs(safe_float_value(row.get(f"{c}_diff"))) <= amount_tol for c in ["igst", "cgst", "sgst", "cess"])
+    gap = row.get("date_diff_days")
+    try:
+        date_ok = int(gap) <= int(date_tol)
+    except Exception:
+        date_ok = True
+
+    row["match_level"] = "L1 Exact GSTIN + Invoice No"
+    if amount_ok and tax_head_ok and date_ok:
+        row["mismatch_type"] = "Matched"
+    elif amount_ok and not tax_head_ok:
+        row["mismatch_type"] = "Tax Head Mismatch"
+    elif (not amount_ok) and date_ok:
+        row["mismatch_type"] = "Value / Tax Mismatch"
+    elif amount_ok and tax_head_ok and not date_ok:
+        row["mismatch_type"] = "Date Mismatch"
+    else:
+        row["mismatch_type"] = "Value and Date Mismatch"
+    return row
+
+
+def add_probable_match_flags(result: pd.DataFrame, p_agg: pd.DataFrame, i_agg: pd.DataFrame, amount_tol: float, date_tol: int) -> pd.DataFrame:
+    """Mark IMS-only rows where supplier/value/date indicates a likely invoice-number difference."""
+    if result.empty or p_agg.empty or i_agg.empty:
+        return result
+    p_lookup = p_agg.copy()
+    i_only_mask = result["_merge"].astype(str).eq("right_only")
+    if not i_only_mask.any():
+        return result
+
+    for idx, row in result[i_only_mask].iterrows():
+        gstin = row.get("supplier_gstin", "")
+        candidates = p_lookup[p_lookup["supplier_gstin"].astype(str).eq(str(gstin))].copy()
+        if candidates.empty:
+            continue
+        best_score = 999999.0
+        best = None
+        for _, p in candidates.iterrows():
+            tax_gap = abs(safe_float_value(p.get("total_tax_purchase")) - safe_float_value(row.get("total_tax_ims")))
+            taxable_gap = abs(safe_float_value(p.get("taxable_value_purchase")) - safe_float_value(row.get("taxable_value_ims")))
+            inv_gap = abs(safe_float_value(p.get("invoice_value_purchase")) - safe_float_value(row.get("invoice_value_ims")))
+            dg = date_gap_days(p.get("document_date_purchase"), row.get("document_date_ims"))
+            dg_score = 9999 if dg is None else dg
+            if taxable_gap <= amount_tol and tax_gap <= amount_tol and inv_gap <= max(amount_tol, 1) and dg_score <= date_tol:
+                score = taxable_gap + tax_gap + inv_gap + dg_score
+                if score < best_score:
+                    best_score = score
+                    best = p
+        if best is not None:
+            result.loc[idx, "mismatch_type"] = "Probable Match - Invoice No Difference"
+            result.loc[idx, "match_level"] = "L3 GSTIN + Date + Value"
+            result.loc[idx, "confidence_score"] = 78
+            result.loc[idx, "reason"] = "GSTIN, date and values are close but invoice/document number differs. Review invoice number format before accepting."
+            for col in ["supplier_name_purchase", "document_type_purchase", "document_no_purchase", "document_date_purchase", "invoice_value_purchase", "taxable_value_purchase", "igst_purchase", "cgst_purchase", "sgst_purchase", "cess_purchase", "total_tax_purchase"]:
+                if col in best.index:
+                    result.loc[idx, col] = best[col]
+            for c in MONEY_COLS + ["total_tax"]:
+                result.loc[idx, f"{c}_diff"] = safe_float_value(result.loc[idx].get(f"{c}_purchase")) - safe_float_value(result.loc[idx].get(f"{c}_ims"))
+            result.loc[idx, "date_diff_days"] = date_gap_days(result.loc[idx].get("document_date_purchase"), result.loc[idx].get("document_date_ims")) or 0
+    return result
+
+
+def upload_quality_summary(df: pd.DataFrame, label: str) -> pd.DataFrame:
+    if df is None or df.empty:
+        return pd.DataFrame({"Check": [f"{label} records"], "Value": [0]})
+    work = df.copy()
+    dup_count = 0
+    if {"supplier_gstin", "document_norm"}.issubset(work.columns):
+        dup_count = int(work.duplicated(["supplier_gstin", "document_norm"], keep=False).sum())
+    rows = [
+        (f"{label} records", len(work)),
+        ("Valid GSTIN", int(work.get("gstin_valid", pd.Series(dtype=bool)).fillna(False).sum()) if "gstin_valid" in work else 0),
+        ("Invalid GSTIN", int((~work.get("gstin_valid", pd.Series(dtype=bool)).fillna(True)).sum()) if "gstin_valid" in work else 0),
+        ("Blank invoice/document no", int(work.get("document_norm", pd.Series(dtype=str)).astype(str).eq("").sum()) if "document_norm" in work else 0),
+        ("Duplicate GSTIN + invoice/document no", dup_count),
+        ("Blank document date", int(pd.to_datetime(work.get("document_date", pd.Series()), errors="coerce").isna().sum()) if "document_date" in work else 0),
+        ("Total taxable value", round(safe_float_value(work.get("taxable_value", pd.Series(dtype=float)).sum()) if "taxable_value" in work else 0, 2)),
+        ("Total tax", round(safe_float_value(work.get("total_tax", pd.Series(dtype=float)).sum()) if "total_tax" in work else 0, 2)),
+    ]
+    return pd.DataFrame(rows, columns=["Check", "Value"])
+
+
+def duplicate_report(df: pd.DataFrame, label: str) -> pd.DataFrame:
+    if df is None or df.empty or not {"supplier_gstin", "document_norm"}.issubset(df.columns):
+        return pd.DataFrame()
+    dup = df[df.duplicated(["supplier_gstin", "document_norm"], keep=False)].copy()
+    if dup.empty:
+        return pd.DataFrame()
+    cols = [c for c in ["supplier_gstin", "supplier_name", "document_no", "document_date", "taxable_value", "total_tax", "source", "ims_sheet"] if c in dup.columns]
+    out = dup[cols].copy()
+    out.insert(0, "Dataset", label)
+    return out
+
+
+def final_json_review_table(action_df: pd.DataFrame) -> pd.DataFrame:
+    if action_df is None or action_df.empty:
+        return pd.DataFrame()
+    work = action_df.copy()
+    work["GST JSON Code"] = work.get("final_user_action", "Pending").apply(action_label_to_gst_code)
+    return work.groupby(["final_user_action", "GST JSON Code"], dropna=False).size().reset_index(name="Records")
+
+
+def split_report_sheets(p: pd.DataFrame, ims: pd.DataFrame, recon: pd.DataFrame, action: pd.DataFrame) -> Dict[str, pd.DataFrame]:
+    sheets = {
+        "Summary": recon_summary(recon),
+        "Final Action Report": action,
+        "Reconciliation": recon,
+        "Purchase Standardized": p,
+        "IMS JSON Standardized": ims,
+        "Purchase Quality": upload_quality_summary(p, "Purchase Register"),
+        "IMS Quality": upload_quality_summary(ims, "IMS JSON"),
+        "Purchase Duplicates": duplicate_report(p, "Purchase Register"),
+        "IMS Duplicates": duplicate_report(ims, "IMS JSON"),
+        "Audit Log": load_audit(st.session_state.username),
+    }
+    if recon is not None and not recon.empty:
+        sheets.update({
+            "Matched": recon[recon["mismatch_type"].eq("Matched")],
+            "Pending Cases": action[action.get("final_user_action", pd.Series()).eq("Pending")] if action is not None and not action.empty else pd.DataFrame(),
+            "Rejected Cases": action[action.get("final_user_action", pd.Series()).eq("Rejected")] if action is not None and not action.empty else pd.DataFrame(),
+            "Only in IMS": recon[recon["mismatch_type"].eq("Only in IMS")],
+            "Only in Purchase": recon[recon["mismatch_type"].eq("Only in Purchase Register")],
+            "Value Mismatch": recon[recon["mismatch_type"].astype(str).str.contains("Value|Tax Head", case=False, na=False)],
+            "High Risk": recon[recon["risk_level"].isin(["High", "Critical"])],
+            "Probable Matches": recon[recon["mismatch_type"].astype(str).str.contains("Probable", case=False, na=False)],
+        })
+    return sheets
+
 def aggregate(df: pd.DataFrame, label: str) -> pd.DataFrame:
     if df is None or df.empty:
         return pd.DataFrame()
@@ -1540,12 +1720,19 @@ def aggregate(df: pd.DataFrame, label: str) -> pd.DataFrame:
 
 
 def calculate_recon(purchase: pd.DataFrame, ims: pd.DataFrame, amount_tol: float, date_tol: int, include_amendments: bool) -> pd.DataFrame:
-    if purchase.empty or ims.empty:
+    """V7 stronger reconciliation engine.
+
+    Matching levels:
+    L1: GSTIN + cleaned invoice/document number
+    L3: GSTIN + date + values where invoice number differs (probable match flag)
+    All exact matches are then tested for value/date/tax-head mismatch.
+    """
+    if purchase is None or ims is None or purchase.empty or ims.empty:
         return pd.DataFrame()
 
     ims_work = ims.copy()
     if not include_amendments and "ims_sheet" in ims_work.columns:
-        ims_work = ims_work[~ims_work["ims_sheet"].astype(str).str.upper().isin(["B2BA", "B2B-DNA", "B2B-CNA"])]
+        ims_work = ims_work[~ims_work["ims_sheet"].astype(str).str.upper().isin(["B2BA", "B2B-DNA", "B2B-CNA", "B2BDN", "B2BCN"])]
 
     p = aggregate(purchase, "purchase")
     i = aggregate(ims_work, "ims")
@@ -1561,49 +1748,49 @@ def calculate_recon(purchase: pd.DataFrame, ims: pd.DataFrame, amount_tol: float
     idate = pd.to_datetime(m.get("document_date_ims"), errors="coerce")
     m["date_diff_days"] = (pdate - idate).dt.days.abs().fillna(0).astype("Int64")
 
-    both = m["_merge"].eq("both")
-    ponly = m["_merge"].eq("left_only")
-    ionly = m["_merge"].eq("right_only")
+    m["recon_key"] = m.apply(lambda r: make_recon_key(r.get("supplier_gstin"), r.get("document_norm")), axis=1)
+    m["mismatch_type"] = "Review"
+    m["match_level"] = "L0 Not matched"
+    m = m.apply(lambda r: enhance_recon_row(r, amount_tol, date_tol), axis=1)
 
-    amount_ok = (
-        m["taxable_value_diff"].abs().le(amount_tol)
-        & m["total_tax_diff"].abs().le(amount_tol)
-        & m["invoice_value_diff"].abs().le(max(amount_tol, 1))
-    )
-    tax_head_ok = (
-        m["igst_diff"].abs().le(amount_tol)
-        & m["cgst_diff"].abs().le(amount_tol)
-        & m["sgst_diff"].abs().le(amount_tol)
-        & m["cess_diff"].abs().le(amount_tol)
-    )
-    date_ok = m["date_diff_days"].fillna(0).le(date_tol)
+    # Mark likely matches where invoice number differs but GSTIN/date/value are close.
+    m = add_probable_match_flags(m, p, i, amount_tol, date_tol)
 
-    m["mismatch_type"] = "Matched"
-    m.loc[ponly, "mismatch_type"] = "Only in Purchase Register"
-    m.loc[ionly, "mismatch_type"] = "Only in IMS"
-    m.loc[both & amount_ok & ~tax_head_ok, "mismatch_type"] = "Tax Head Mismatch"
-    m.loc[both & ~amount_ok & date_ok, "mismatch_type"] = "Value / Tax Mismatch"
-    m.loc[both & amount_ok & tax_head_ok & ~date_ok, "mismatch_type"] = "Date Mismatch"
-    m.loc[both & ~amount_ok & ~date_ok, "mismatch_type"] = "Value and Date Mismatch"
-
-    m["risk_score"] = m.apply(risk_score, axis=1)
-    m["risk_level"] = m["risk_score"].map(risk_level)
-    m["recommended_action"] = m.apply(recommend_action, axis=1)
-    m["reason"] = m.apply(recommend_reason, axis=1)
-    m["vendor_followup_required"] = m["mismatch_type"].isin(["Only in Purchase Register", "Value / Tax Mismatch", "Tax Head Mismatch", "Value and Date Mismatch", "Only in IMS"])
-    m["final_user_action"] = m["recommended_action"]
-    m["user_remarks"] = ""
-    m["confidence_score"] = m.apply(confidence_score, axis=1)
+    # Data-quality and duplicate flags.
+    purchase_dups = set()
+    ims_dups = set()
+    if {"supplier_gstin", "document_norm"}.issubset(purchase.columns):
+        purchase_dups = set(purchase[purchase.duplicated(["supplier_gstin", "document_norm"], keep=False)].apply(lambda r: make_recon_key(r.get("supplier_gstin"), r.get("document_norm")), axis=1))
+    if {"supplier_gstin", "document_norm"}.issubset(ims_work.columns):
+        ims_dups = set(ims_work[ims_work.duplicated(["supplier_gstin", "document_norm"], keep=False)].apply(lambda r: make_recon_key(r.get("supplier_gstin"), r.get("document_norm")), axis=1))
+    m["duplicate_flag"] = m["recon_key"].apply(lambda k: "Purchase Duplicate" if k in purchase_dups else ("IMS Duplicate" if k in ims_dups else ""))
+    m.loc[m["duplicate_flag"].ne("") & m["mismatch_type"].eq("Matched"), "mismatch_type"] = "Duplicate Review"
 
     # Presentation columns
     m["supplier_name"] = m.get("supplier_name_purchase").fillna(m.get("supplier_name_ims"))
     m["document_type"] = m.get("document_type_purchase").fillna(m.get("document_type_ims"))
     m["document_no"] = m.get("document_no_purchase").fillna(m.get("document_no_ims"))
-    m["document_date"] = pdate.fillna(idate)
+    m["document_date"] = pd.to_datetime(m.get("document_date_purchase"), errors="coerce").fillna(pd.to_datetime(m.get("document_date_ims"), errors="coerce"))
+
+    m["risk_score"] = m.apply(risk_score, axis=1)
+    m["risk_level"] = m["risk_score"].map(risk_level)
+    m["recommended_action"] = m.apply(recommend_action, axis=1)
+    m["reason"] = m.apply(recommend_reason, axis=1)
+    m.loc[m["mismatch_type"].eq("Probable Match - Invoice No Difference"), "recommended_action"] = "Pending"
+    m.loc[m["mismatch_type"].eq("Probable Match - Invoice No Difference"), "reason"] = "Probable match by GSTIN/date/value. Keep Pending until invoice number is confirmed."
+    m.loc[m["mismatch_type"].eq("Duplicate Review"), "recommended_action"] = "Pending"
+    m.loc[m["mismatch_type"].eq("Duplicate Review"), "reason"] = "Duplicate document key detected. Review before final IMS action."
+    m["vendor_followup_required"] = m["mismatch_type"].isin(["Only in Purchase Register", "Value / Tax Mismatch", "Tax Head Mismatch", "Value and Date Mismatch", "Only in IMS", "Probable Match - Invoice No Difference", "Duplicate Review"])
+    m["final_user_action"] = m["mismatch_type"].apply(lambda x: "Accepted" if x == "Matched" else "Pending")
+    m["user_remarks"] = ""
+    m["confidence_score"] = m.apply(confidence_score, axis=1)
+    m.loc[m["mismatch_type"].eq("Probable Match - Invoice No Difference"), "confidence_score"] = 78
+    m.loc[m["mismatch_type"].eq("Duplicate Review"), "confidence_score"] = 45
+    m["json_action_code"] = m["final_user_action"].apply(action_label_to_gst_code)
 
     priority_order = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}
     m["_risk_order"] = m["risk_level"].map(priority_order).fillna(9)
-    m = m.sort_values(["_risk_order", "supplier_gstin", "document_norm"]).drop(columns=["_risk_order"])
+    m = m.sort_values(["_risk_order", "mismatch_type", "supplier_gstin", "document_norm"]).drop(columns=["_risk_order"])
     return m.reset_index(drop=True)
 
 
@@ -2111,6 +2298,19 @@ def upload_center_page():
     with tabs[2]:
         show_df(st.session_state.recon_df.head(100))
 
+    st.markdown("### V7 Upload Validation")
+    vtab1, vtab2, vtab3 = st.tabs(["Purchase Quality", "IMS Quality", "Duplicate Report"])
+    with vtab1:
+        show_df(upload_quality_summary(st.session_state.purchase_df, "Purchase Register"), 50)
+    with vtab2:
+        show_df(upload_quality_summary(st.session_state.ims_df, "IMS JSON"), 50)
+        if st.session_state.ims_json_data:
+            st.markdown("**IMS JSON section count**")
+            show_df(ims_json_section_counts(st.session_state.ims_json_data), 50)
+    with vtab3:
+        dup = pd.concat([duplicate_report(st.session_state.purchase_df, "Purchase Register"), duplicate_report(st.session_state.ims_df, "IMS JSON")], ignore_index=True)
+        show_df(dup, 500)
+
 def ims_data_viewer_page():
     page_title("IMS Data Viewer", "Review uploaded and standardized data before reconciliation.")
     tabs = st.tabs(["Purchase Register", "IMS Combined", "IMS Sheet Summary"])
@@ -2175,50 +2375,123 @@ def reconciliation_page():
 
 
 def action_center_page():
-    page_title("IMS Action Center", "Review system recommended actions and finalize user action.")
+    page_title("IMS Action Center", "Filter, bulk-update and finalize invoice-wise action/remarks before GST JSON generation.")
     df = st.session_state.action_df
     if df.empty:
         st.info("Run reconciliation first.")
         return
 
-    c1, c2, c3, c4 = st.columns(4)
-    with c1: metric_card("✅", "Accepted", f"{(df['final_user_action']=='Accepted').sum():,}", "", "#ecfaef", "#27a857")
-    with c2: metric_card("📌", "Pending", f"{(df['final_user_action']=='Pending').sum():,}", "", "#fff7ed", "#f4a62a")
-    with c3: metric_card("🚫", "Rejected", f"{(df['final_user_action']=='Rejected').sum():,}", "", "#fff0ed", "#e1563a", True)
-    with c4: metric_card("🕘", "No Action", f"{(df['final_user_action']=='No Action').sum():,}", "", "#edf4ff", "#4d8df7")
+    # Ensure required columns exist.
+    df = df.copy()
+    if "final_user_action" not in df.columns:
+        df["final_user_action"] = df.get("recommended_action", "Pending")
+    if "user_remarks" not in df.columns:
+        df["user_remarks"] = ""
+    if "json_action_code" not in df.columns:
+        df["json_action_code"] = df["final_user_action"].apply(action_label_to_gst_code)
+
+    c1, c2, c3, c4, c5 = st.columns(5)
+    with c1: metric_card("✅", "Accepted", f"{(df['final_user_action']=='Accepted').sum():,}", "JSON A", "#ecfaef", "#27a857")
+    with c2: metric_card("📌", "Pending", f"{(df['final_user_action']=='Pending').sum():,}", "JSON P", "#fff7ed", "#f4a62a")
+    with c3: metric_card("🚫", "Rejected", f"{(df['final_user_action']=='Rejected').sum():,}", "JSON R", "#fff0ed", "#e1563a", True)
+    with c4: metric_card("🕘", "No Action", f"{(df['final_user_action']=='No Action').sum():,}", "converted safely", "#edf4ff", "#4d8df7")
+    with c5: metric_card("⚠️", "High Risk", f"{df['risk_level'].isin(['High','Critical']).sum():,}" if 'risk_level' in df else "0", "review first", "#f4eefe", "#8b6cf7")
+
+    st.markdown("### Filters")
+    f1, f2, f3, f4 = st.columns(4)
+    with f1:
+        action_filter = st.selectbox("Final Action", ["All"] + ACTION_VALUES, key="action_filter_v7")
+    with f2:
+        mismatch_options = ["All"] + sorted(df.get("mismatch_type", pd.Series(dtype=str)).dropna().astype(str).unique().tolist())
+        mismatch_filter = st.selectbox("Mismatch Type", mismatch_options, key="mismatch_filter_v7")
+    with f3:
+        risk_options = ["All"] + sorted(df.get("risk_level", pd.Series(dtype=str)).dropna().astype(str).unique().tolist())
+        risk_filter = st.selectbox("Risk Level", risk_options, key="risk_filter_v7")
+    with f4:
+        search_text = st.text_input("Search GSTIN / Invoice / Vendor", key="action_search_v7")
+
+    view = df.copy()
+    if action_filter != "All":
+        view = view[view["final_user_action"].astype(str).eq(action_filter)]
+    if mismatch_filter != "All" and "mismatch_type" in view:
+        view = view[view["mismatch_type"].astype(str).eq(mismatch_filter)]
+    if risk_filter != "All" and "risk_level" in view:
+        view = view[view["risk_level"].astype(str).eq(risk_filter)]
+    if search_text:
+        stext = search_text.lower().strip()
+        combined = view[[c for c in ["supplier_gstin", "supplier_name", "document_no", "document_norm"] if c in view.columns]].astype(str).agg(" ".join, axis=1).str.lower()
+        view = view[combined.str.contains(re.escape(stext), na=False)]
+
+    st.caption(f"Showing {len(view):,} rows out of {len(df):,}. Tick Select for bulk action, or directly edit Final User Action / Remarks.")
 
     view_cols = [
         "supplier_gstin", "supplier_name", "document_type", "document_no", "document_date",
-        "taxable_value_ims", "total_tax_ims", "mismatch_type", "risk_level", "recommended_action",
-        "final_user_action", "reason", "user_remarks"
+        "taxable_value_ims", "total_tax_ims", "taxable_value_diff", "total_tax_diff",
+        "mismatch_type", "match_level", "risk_level", "confidence_score", "recommended_action",
+        "final_user_action", "json_action_code", "reason", "user_remarks"
     ]
-    exist_cols = [c for c in view_cols if c in df.columns]
-    edit_df = df[exist_cols].copy()
+    exist_cols = [c for c in view_cols if c in view.columns]
+    edit_df = view[exist_cols].copy()
+    edit_df.insert(0, "_row_id", edit_df.index)
+    edit_df.insert(0, "Select", False)
 
-    st.caption("You can edit Final User Action and User Remarks below.")
     edited = st.data_editor(
         edit_df,
         use_container_width=True,
         hide_index=True,
         num_rows="fixed",
         column_config={
+            "Select": st.column_config.CheckboxColumn("Select"),
+            "_row_id": st.column_config.NumberColumn("Row ID", disabled=True),
             "final_user_action": st.column_config.SelectboxColumn("Final User Action", options=ACTION_VALUES),
             "user_remarks": st.column_config.TextColumn("User Remarks"),
         },
+        disabled=[c for c in edit_df.columns if c not in ["Select", "final_user_action", "user_remarks"]],
+        key="action_editor_v7",
     )
 
-    if st.button("💾 Save Final Actions", use_container_width=True):
-        updated = df.copy()
-        for col in ["final_user_action", "user_remarks"]:
-            if col in edited.columns:
-                updated.loc[edited.index, col] = edited[col].values
+    st.markdown("### Bulk Action for Selected Rows")
+    b1, b2, b3 = st.columns([1, 1, 2])
+    with b1:
+        bulk_action = st.selectbox("Bulk final action", ACTION_VALUES, index=ACTION_VALUES.index("Pending"), key="bulk_action_v7")
+    with b2:
+        apply_bulk = st.button("Apply to selected", use_container_width=True)
+    with b3:
+        bulk_remarks = st.text_input("Optional common remarks", key="bulk_remarks_v7")
+
+    updated = df.copy()
+    # Save direct edits first.
+    for _, erow in edited.iterrows():
+        rid = int(erow["_row_id"])
+        if rid in updated.index:
+            updated.loc[rid, "final_user_action"] = erow.get("final_user_action", updated.loc[rid, "final_user_action"])
+            updated.loc[rid, "user_remarks"] = erow.get("user_remarks", updated.loc[rid, "user_remarks"])
+
+    if apply_bulk:
+        selected_ids = edited.loc[edited["Select"] == True, "_row_id"].astype(int).tolist()
+        if not selected_ids:
+            st.warning("Please tick Select for at least one row.")
+        else:
+            updated.loc[selected_ids, "final_user_action"] = bulk_action
+            if bulk_remarks.strip():
+                updated.loc[selected_ids, "user_remarks"] = bulk_remarks.strip()
+            updated["json_action_code"] = updated["final_user_action"].apply(action_label_to_gst_code)
+            st.session_state.action_df = updated
+            st.session_state.final_json_bytes = b""
+            st.session_state.final_json_summary = pd.DataFrame()
+            save_user_state(["action_df", "final_json_bytes", "final_json_summary"])
+            log_event("Action Center", f"Bulk action applied to {len(selected_ids)} rows: {bulk_action}")
+            st.success(f"Bulk action applied to {len(selected_ids):,} rows.")
+            st.rerun()
+
+    if st.button("💾 Save Final Actions / Remarks", type="primary", use_container_width=True):
         updated["json_action_code"] = updated["final_user_action"].apply(action_label_to_gst_code)
         st.session_state.action_df = updated
         st.session_state.final_json_bytes = b""
         st.session_state.final_json_summary = pd.DataFrame()
         save_user_state(["action_df", "final_json_bytes", "final_json_summary"])
         log_event("Action Center", "Final user actions and remarks updated")
-        st.success("Final actions and remarks saved. Now go to Reports & Export to generate the final GST upload JSON.")
+        st.success("Final actions and remarks saved. Now go to Reports & Export for final review and GST upload JSON generation.")
 
 
 def risk_center_page():
@@ -2278,24 +2551,31 @@ Regards,
 
 
 def reports_page():
-    page_title("Reports & Final GST Upload JSON", "Download reports and generate the final JSON after action/remarks are finalized.")
+    page_title("Reports & Final GST Upload JSON", "Final review, workpaper export and GST portal upload JSON generation.")
     p, ims, recon, action = st.session_state.purchase_df, st.session_state.ims_df, st.session_state.recon_df, st.session_state.action_df
+
+    st.markdown("### Final Review Before GST JSON")
+    if action.empty:
+        st.info("No final action report available yet. Run reconciliation and save actions first.")
+    else:
+        review = final_json_review_table(action)
+        r1, r2 = st.columns([1.2, 2])
+        with r1:
+            show_df(review, 20)
+        with r2:
+            st.info("GST JSON generation logic is the stable V6 amendment-safe logic. It remains unchanged in V7. Only your final action values are used to update GST action codes.")
+            risky = action[action.get("risk_level", pd.Series(dtype=str)).isin(["High", "Critical"])] if "risk_level" in action else pd.DataFrame()
+            if not risky.empty:
+                st.warning(f"{len(risky):,} high/critical risk rows exist. Review them before generating JSON.")
 
     c1, c2 = st.columns([1, 1])
     with c1:
         st.markdown("<div class='panel'><div class='panel-title'>📊 Complete Excel Workpaper</div>", unsafe_allow_html=True)
-        sheets = {
-            "Final Action Report": action,
-            "Reconciliation": recon,
-            "Summary": recon_summary(recon),
-            "Purchase Standardized": p,
-            "IMS JSON Standardized": ims,
-            "Audit Log": load_audit(st.session_state.username),
-        }
+        sheets = split_report_sheets(p, ims, recon, action)
         st.download_button(
             "📥 Download Complete IMS Workpaper",
             data=to_excel_bytes(sheets),
-            file_name=f"IMS_JSON_Recon_Workpaper_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+            file_name=f"IMS_JSON_Recon_Workpaper_V7_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
         )
@@ -2303,7 +2583,7 @@ def reports_page():
 
     with c2:
         st.markdown("<div class='panel'><div class='panel-title'>🧬 Final GST Portal Upload JSON</div>", unsafe_allow_html=True)
-        st.caption("This generates official GST utility-style upload JSON: rtin + reqtyp SAVE + invdata. Accepted/Pending/Rejected are uploaded in GST schema format.")
+        st.caption("Stable V6 GST schema: rtin + reqtyp SAVE + invdata. Amendment-safe fields are preserved from the original GST IMS JSON.")
         if not st.session_state.ims_json_data:
             st.warning("Please upload/process IMS JSON first.")
         elif action.empty:
@@ -2313,18 +2593,17 @@ def reports_page():
             if not source_counts.empty:
                 st.markdown("**Uploaded IMS JSON section count**")
                 st.dataframe(source_counts, use_container_width=True, hide_index=True)
-                sections = set(source_counts["Section"].astype(str).str.lower())
-                if "b2ba" not in sections:
-                    st.info("Your uploaded source JSON does not contain B2B amendment section `b2ba`. If GST portal shows amendment records, download a fresh IMS JSON from portal and upload it again before generating final JSON.")
 
-            if st.button("⚙️ Generate Final GST Upload JSON", type="primary", use_container_width=True):
+            confirm = st.checkbox("I have reviewed final actions and want to generate GST upload JSON", key="confirm_json_v7")
+            if st.button("⚙️ Generate Final GST Upload JSON", type="primary", use_container_width=True, disabled=not confirm):
                 try:
+                    # DO NOT CHANGE: stable V6 amendment-safe generator.
                     json_bytes, summary = generate_gst_upload_json_from_final_actions(st.session_state.ims_json_data, st.session_state.action_df)
                     st.session_state.final_json_bytes = json_bytes
                     st.session_state.final_json_summary = summary
                     save_user_state(["final_json_bytes", "final_json_summary"])
                     log_event("GST JSON", f"Final GST upload JSON generated: {len(summary):,} records")
-                    st.success(f"Final GST upload JSON generated. Records updated: {len(summary):,}")
+                    st.success(f"Final GST upload JSON generated. Records included: {len(summary):,}")
                 except Exception as e:
                     st.error(f"Unable to generate final JSON: {e}")
 
@@ -2343,23 +2622,20 @@ def reports_page():
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("---")
-    st.markdown("### Final Action Summary")
-    if action.empty:
-        st.info("No final action report available yet.")
-    else:
-        report_rows = [
-            ["Final IMS Action Report", len(action)],
-            ["Reconciliation Report", len(recon)],
-            ["Accepted / JSON A", int((action["final_user_action"] == "Accepted").sum()) if not action.empty else 0],
-            ["Pending / JSON P", int((action["final_user_action"] == "Pending").sum()) if not action.empty else 0],
-            ["Rejected / JSON R", int((action["final_user_action"] == "Rejected").sum()) if not action.empty else 0],
-            ["No Action / JSON N", int((action["final_user_action"] == "No Action").sum()) if not action.empty else 0],
-        ]
-        show_df(pd.DataFrame(report_rows, columns=["Report", "Records"]), 20)
+    st.markdown("### Upload & Duplicate Validation")
+    t1, t2, t3 = st.tabs(["Purchase Quality", "IMS Quality", "Duplicates"])
+    with t1:
+        show_df(upload_quality_summary(p, "Purchase Register"), 50)
+    with t2:
+        show_df(upload_quality_summary(ims, "IMS JSON"), 50)
+    with t3:
+        dup = pd.concat([duplicate_report(p, "Purchase Register"), duplicate_report(ims, "IMS JSON")], ignore_index=True)
+        show_df(dup, 500)
 
     if isinstance(st.session_state.final_json_summary, pd.DataFrame) and not st.session_state.final_json_summary.empty:
         st.markdown("### Final JSON Update Summary")
         show_df(st.session_state.final_json_summary.groupby(["Section", "Final Action", "GST JSON Action Code"], dropna=False).size().reset_index(name="Records"), 100)
+
 
 def ai_insight_page():
     page_title("AI Insight Desk", "Rule-based smart GST IMS insights without external API.")
