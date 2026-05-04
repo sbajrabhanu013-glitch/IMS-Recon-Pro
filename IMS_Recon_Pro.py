@@ -1623,23 +1623,65 @@ def add_probable_match_flags(result: pd.DataFrame, p_agg: pd.DataFrame, i_agg: p
 
 
 def upload_quality_summary(df: pd.DataFrame, label: str) -> pd.DataFrame:
+    """Upload validation with value columns for taxation review."""
+    value_cols = ["taxable_value", "igst", "cgst", "sgst", "cess", "total_tax"]
+
+    def blank_series(index=None):
+        return pd.Series([False] * (0 if index is None else len(index)), index=index)
+
+    def amount_row(check: str, subset: pd.DataFrame) -> dict:
+        subset = subset if subset is not None else pd.DataFrame()
+        row = {
+            "Check": check,
+            "Records": int(len(subset)),
+            "Taxable Value": round(safe_float_value(subset.get("taxable_value", pd.Series(dtype=float)).sum()) if "taxable_value" in subset else 0, 2),
+            "IGST": round(safe_float_value(subset.get("igst", pd.Series(dtype=float)).sum()) if "igst" in subset else 0, 2),
+            "CGST": round(safe_float_value(subset.get("cgst", pd.Series(dtype=float)).sum()) if "cgst" in subset else 0, 2),
+            "SGST": round(safe_float_value(subset.get("sgst", pd.Series(dtype=float)).sum()) if "sgst" in subset else 0, 2),
+            "CESS": round(safe_float_value(subset.get("cess", pd.Series(dtype=float)).sum()) if "cess" in subset else 0, 2),
+            "Total Tax": round(safe_float_value(subset.get("total_tax", pd.Series(dtype=float)).sum()) if "total_tax" in subset else 0, 2),
+        }
+        return row
+
     if df is None or df.empty:
-        return pd.DataFrame({"Check": [f"{label} records"], "Value": [0]})
+        return pd.DataFrame([amount_row(f"{label} records", pd.DataFrame())])
+
     work = df.copy()
-    dup_count = 0
+    rows = []
+    rows.append(amount_row(f"{label} records", work))
+
+    if "gstin_valid" in work.columns:
+        valid_mask = work["gstin_valid"].fillna(False).astype(bool)
+        rows.append(amount_row("Valid GSTIN", work[valid_mask]))
+        rows.append(amount_row("Invalid GSTIN", work[~valid_mask]))
+    else:
+        rows.append(amount_row("Valid GSTIN", pd.DataFrame()))
+        rows.append(amount_row("Invalid GSTIN", pd.DataFrame()))
+
+    if "document_norm" in work.columns:
+        blank_inv = work["document_norm"].astype(str).eq("")
+        rows.append(amount_row("Blank invoice/document no", work[blank_inv]))
+    else:
+        rows.append(amount_row("Blank invoice/document no", pd.DataFrame()))
+
     if {"supplier_gstin", "document_norm"}.issubset(work.columns):
-        dup_count = int(work.duplicated(["supplier_gstin", "document_norm"], keep=False).sum())
-    rows = [
-        (f"{label} records", len(work)),
-        ("Valid GSTIN", int(work.get("gstin_valid", pd.Series(dtype=bool)).fillna(False).sum()) if "gstin_valid" in work else 0),
-        ("Invalid GSTIN", int((~work.get("gstin_valid", pd.Series(dtype=bool)).fillna(True)).sum()) if "gstin_valid" in work else 0),
-        ("Blank invoice/document no", int(work.get("document_norm", pd.Series(dtype=str)).astype(str).eq("").sum()) if "document_norm" in work else 0),
-        ("Duplicate GSTIN + invoice/document no", dup_count),
-        ("Blank document date", int(pd.to_datetime(work.get("document_date", pd.Series()), errors="coerce").isna().sum()) if "document_date" in work else 0),
-        ("Total taxable value", round(safe_float_value(work.get("taxable_value", pd.Series(dtype=float)).sum()) if "taxable_value" in work else 0, 2)),
-        ("Total tax", round(safe_float_value(work.get("total_tax", pd.Series(dtype=float)).sum()) if "total_tax" in work else 0, 2)),
-    ]
-    return pd.DataFrame(rows, columns=["Check", "Value"])
+        dup_mask = work.duplicated(["supplier_gstin", "document_norm"], keep=False)
+        rows.append(amount_row("Duplicate GSTIN + invoice/document no", work[dup_mask]))
+    else:
+        rows.append(amount_row("Duplicate GSTIN + invoice/document no", pd.DataFrame()))
+
+    if "document_date" in work.columns:
+        blank_date = pd.to_datetime(work["document_date"], errors="coerce").isna()
+        rows.append(amount_row("Blank document date", work[blank_date]))
+    else:
+        rows.append(amount_row("Blank document date", pd.DataFrame()))
+
+    # Additional tax-wise check helpful for GST reconciliation review
+    if all(c in work.columns for c in ["igst", "cgst", "sgst"]):
+        tax_blank = work[["igst", "cgst", "sgst"]].fillna(0).abs().sum(axis=1).le(0.009)
+        rows.append(amount_row("Zero IGST/CGST/SGST", work[tax_blank]))
+
+    return pd.DataFrame(rows)
 
 
 def duplicate_report(df: pd.DataFrame, label: str) -> pd.DataFrame:
@@ -1648,8 +1690,30 @@ def duplicate_report(df: pd.DataFrame, label: str) -> pd.DataFrame:
     dup = df[df.duplicated(["supplier_gstin", "document_norm"], keep=False)].copy()
     if dup.empty:
         return pd.DataFrame()
-    cols = [c for c in ["supplier_gstin", "supplier_name", "document_no", "document_date", "taxable_value", "total_tax", "source", "ims_sheet"] if c in dup.columns]
+    cols = [
+        c for c in [
+            "supplier_gstin", "supplier_name", "document_no", "document_date",
+            "invoice_value", "taxable_value", "igst", "cgst", "sgst", "cess", "total_tax",
+            "source", "ims_sheet"
+        ] if c in dup.columns
+    ]
     out = dup[cols].copy()
+    rename_map = {
+        "invoice_value": "Invoice Value",
+        "taxable_value": "Taxable Value",
+        "igst": "IGST",
+        "cgst": "CGST",
+        "sgst": "SGST",
+        "cess": "CESS",
+        "total_tax": "Total Tax",
+        "supplier_gstin": "Supplier GSTIN",
+        "supplier_name": "Supplier Name",
+        "document_no": "Invoice/Document No",
+        "document_date": "Document Date",
+        "source": "Source",
+        "ims_sheet": "IMS Section",
+    }
+    out = out.rename(columns=rename_map)
     out.insert(0, "Dataset", label)
     return out
 
@@ -2102,9 +2166,6 @@ def login_page():
             st.error("Invalid User ID or Password. Please check case-sensitive credentials.")
 
     st.markdown("""
-            <div style='margin-top:18px;font-size:13px;color:#63758e;text-align:center;line-height:1.6;'>
-                MainAdmin / Adminpwd<br>User1 / Userpwd1<br>User2 / Userpwd2
-            </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -2298,7 +2359,7 @@ def upload_center_page():
     with tabs[2]:
         show_df(st.session_state.recon_df.head(100))
 
-    st.markdown("### V7 Upload Validation")
+    st.markdown("### V7.1 Upload Validation — Taxable Value and Tax Head Wise")
     vtab1, vtab2, vtab3 = st.tabs(["Purchase Quality", "IMS Quality", "Duplicate Report"])
     with vtab1:
         show_df(upload_quality_summary(st.session_state.purchase_df, "Purchase Register"), 50)
