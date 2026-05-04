@@ -1080,7 +1080,17 @@ def normalize_action_label(value) -> str:
 
 
 def action_label_to_gst_code(action: str) -> str:
-    """GST IMS JSON action code expected by portal: A/P/R/N."""
+    """GST IMS JSON action code.
+
+    Important for GST upload JSON:
+    - Accepted -> A
+    - Pending  -> P
+    - Rejected -> R
+    - No Action -> N internally only.
+
+    In the final GST upload file, records with No Action/N are skipped, because
+    the official utility output sample contains actioned records only.
+    """
     label = normalize_action_label(action)
     return {"Accepted": "A", "Pending": "P", "Rejected": "R", "No Action": "N"}.get(label, "P")
 
@@ -1236,25 +1246,22 @@ def _compact_json_number(value):
     return value
 
 
-def _clean_ims_upload_record(source_item: dict, action_code: str, remarks: str = "") -> dict:
+def _clean_ims_upload_record(source_item: dict, action_code: str) -> dict:
     """
-    Create one IMS upload record in the same schema as the official GST IMS Offline Utility output.
+    Create one GST IMS upload record using the exact field style visible in
+    the official GST Offline Utility output supplied by the user.
 
-    Schema-safe rule:
-    - Do NOT copy all downloaded JSON keys.
-    - Do NOT include helper/non-upload fields such as tradenm/hash.
-    - Do NOT include remarks unless GST officially accepts it; the user's official utility sample has no remarks key.
-    - Keep only the exact field set/order observed in the official utility output.
+    Very strict rule:
+    - Do not copy all downloaded JSON keys.
+    - Do not include tradenm/hash/remarks/app columns.
+    - Do not include action N records in the final upload JSON.
+    - Keep key order close to official utility output.
     """
     preferred_order = [
         "stin", "inum", "inv_typ", "idt", "val", "action", "pos", "txval",
         "iamt", "camt", "samt", "cess", "srcform", "rtnprd", "srcfilstatus",
         "ispendactblocked", "isRemarksBlocked"
     ]
-
-    # Note/debit-note style fields if present in non-B2B sections. These are included only
-    # when present in the original GST JSON, preserving the original field names.
-    note_fields = ["nt_num", "nt_dt", "ntty", "ont_num", "ont_dt", "oinum", "oidt"]
 
     out = {}
     for key in preferred_order:
@@ -1263,29 +1270,44 @@ def _clean_ims_upload_record(source_item: dict, action_code: str, remarks: str =
         elif key in source_item:
             out[key] = _compact_json_number(source_item.get(key))
 
-    for key in note_fields:
-        if key in source_item and key not in out:
-            out[key] = _compact_json_number(source_item.get(key))
-
-    # Make action mandatory.
+    # Apply safe defaults only for fields that are numeric/flag style and commonly
+    # mandatory in the official utility output. This prevents blank fields from
+    # creating schema errors while preserving actual invoice identity fields.
+    for tax_key in ["iamt", "camt", "samt", "cess"]:
+        out.setdefault(tax_key, 0)
+    out.setdefault("ispendactblocked", "N")
+    out.setdefault("isRemarksBlocked", "N")
     out["action"] = action_code
-
     return out
+
+
+def _record_missing_mandatory(upload_item: dict) -> list:
+    mandatory = ["stin", "inum", "inv_typ", "idt", "val", "action", "pos", "txval", "srcform", "rtnprd", "srcfilstatus"]
+    missing = []
+    for key in mandatory:
+        if key not in upload_item or upload_item.get(key) in [None, ""]:
+            missing.append(key)
+    return missing
 
 
 def generate_gst_upload_json_from_final_actions(original_json: dict, action_df: pd.DataFrame) -> Tuple[bytes, pd.DataFrame]:
     """
-    Generate GST Portal IMS upload JSON in the same structure as the official IMS Offline Utility.
+    Generate GST Portal IMS upload JSON in official utility style.
 
-    The official utility output structure observed from the user's sample is:
+    The user's official output sample confirms this wrapper:
     {
-        "rtin": "...",
-        "reqtyp": "SAVE",
-        "invdata": {"b2b": [ ... actioned records ... ]}
+      "rtin": "...",
+      "reqtyp": "SAVE",
+      "invdata": {"b2b": [ ... ]}
     }
 
-    Therefore we DO NOT export the downloaded wrapper `imsDetails`.
-    We update action values using the in-app Action Center and create `invdata`.
+    This V3 generator is stricter:
+    - lowercase invdata section keys
+    - no imsDetails wrapper
+    - no tradenm/hash/remarks/internal fields
+    - No Action/N records are NOT exported
+    - only A/P/R records are exported
+    - invalid identity records are skipped and shown in summary
     """
     if not isinstance(original_json, dict) or not original_json:
         raise ValueError("Original IMS JSON is not available. Please process IMS JSON first.")
@@ -1293,29 +1315,22 @@ def generate_gst_upload_json_from_final_actions(original_json: dict, action_df: 
         raise ValueError("Final action table is empty. Please run reconciliation and save final actions first.")
 
     action_map = {}
-    remarks_map = {}
-
     for _, row in action_df.iterrows():
         gstin = normalize_gstin(row.get("supplier_gstin", ""))
         doc_norm = normalize_doc_no(row.get("document_norm", ""))
         if not gstin or not doc_norm:
             continue
         action = normalize_action_label(row.get("final_user_action", row.get("recommended_action", "Pending")))
-        remarks = str(row.get("user_remarks", "") or "").strip()
         section = str(row.get("ims_sheet_ims", row.get("ims_sheet", "")) or "").strip().lower()
         action_map[(gstin, doc_norm)] = action
         if section:
             action_map[(section, gstin, doc_norm)] = action
-        if remarks:
-            remarks_map[(gstin, doc_norm)] = remarks[:250]
-            if section:
-                remarks_map[(section, gstin, doc_norm)] = remarks[:250]
 
     section_map = get_json_section_map()
     invdata = {}
     updated_rows = []
+    skipped_rows = []
 
-    # Source downloaded file generally keeps data under imsDetails.
     source_root = original_json.get("imsDetails", original_json.get("invdata", original_json))
 
     def normalized_section_name(key: str) -> str:
@@ -1336,6 +1351,7 @@ def generate_gst_upload_json_from_final_actions(original_json: dict, action_df: 
             doc_no = get_json_value(item, "inum", "nt_num", "document_no", "oinum")
             doc_norm = normalize_doc_no(doc_no)
             if not gstin or not doc_norm:
+                skipped_rows.append({"Section": section, "Supplier GSTIN": gstin, "Document No": doc_no, "Reason": "Missing GSTIN or document number"})
                 continue
 
             status = (
@@ -1344,17 +1360,23 @@ def generate_gst_upload_json_from_final_actions(original_json: dict, action_df: 
                 or action_map.get((gstin, doc_norm))
             )
             if not status:
-                # Only export records present in final action table.
+                skipped_rows.append({"Section": section, "Supplier GSTIN": gstin, "Document No": doc_no, "Reason": "Record not present in Action Center"})
                 continue
 
             action_code = action_label_to_gst_code(status)
-            remarks = (
-                remarks_map.get((section, gstin, doc_norm))
-                or remarks_map.get((str(section_key).lower(), gstin, doc_norm))
-                or remarks_map.get((gstin, doc_norm), "")
-            )
 
-            upload_item = _clean_ims_upload_record(item, action_code, remarks)
+            # Official upload JSON should contain only actioned records.
+            # No Action means do not send the record in the upload JSON.
+            if action_code == "N":
+                skipped_rows.append({"Section": section, "Supplier GSTIN": gstin, "Document No": doc_no, "Reason": "No Action skipped from GST upload JSON"})
+                continue
+
+            upload_item = _clean_ims_upload_record(item, action_code)
+            missing = _record_missing_mandatory(upload_item)
+            if missing:
+                skipped_rows.append({"Section": section, "Supplier GSTIN": gstin, "Document No": doc_no, "Reason": "Missing mandatory fields: " + ", ".join(missing)})
+                continue
+
             invdata.setdefault(section, []).append(upload_item)
             updated_rows.append({
                 "Section": section,
@@ -1362,7 +1384,7 @@ def generate_gst_upload_json_from_final_actions(original_json: dict, action_df: 
                 "Document No": doc_no,
                 "Final Action": status,
                 "GST JSON Action Code": action_code,
-                "User Remarks": remarks,
+                "Validation": "Included in GST upload JSON",
             })
 
     def walk_sections(obj):
@@ -1379,17 +1401,25 @@ def generate_gst_upload_json_from_final_actions(original_json: dict, action_df: 
 
     walk_sections(source_root)
 
+    # Remove any empty section defensively.
+    invdata = {k: v for k, v in invdata.items() if isinstance(v, list) and len(v) > 0}
+
     if not invdata:
-        raise ValueError("No IMS records found for JSON generation. Please check Action Center records and original IMS JSON.")
+        raise ValueError("No actioned IMS records found for GST JSON generation. Please keep at least one Accepted/Pending/Rejected action.")
 
     upload_json = {
-        "rtin": original_json.get("rtin", st.session_state.get("client_gstin", "")),
+        "rtin": str(original_json.get("rtin", st.session_state.get("client_gstin", ""))).strip(),
         "reqtyp": "SAVE",
         "invdata": invdata,
     }
 
     json_bytes = json.dumps(upload_json, ensure_ascii=False, indent=3).encode("utf-8")
-    return json_bytes, pd.DataFrame(updated_rows)
+    included = pd.DataFrame(updated_rows)
+    skipped = pd.DataFrame(skipped_rows)
+    if not skipped.empty:
+        skipped.insert(0, "GST JSON Action Code", "SKIPPED")
+    summary = pd.concat([included, skipped], ignore_index=True) if not skipped.empty else included
+    return json_bytes, summary
 
 
 def aggregate(df: pd.DataFrame, label: str) -> pd.DataFrame:
@@ -2187,7 +2217,7 @@ def reports_page():
 
     with c2:
         st.markdown("<div class='panel'><div class='panel-title'>🧬 Final GST Portal Upload JSON</div>", unsafe_allow_html=True)
-        st.caption("This uses the original GST IMS JSON structure and updates only invoice-wise action values from the Action Center.")
+        st.caption("This generates official GST utility-style upload JSON: rtin + reqtyp SAVE + invdata. No Action records are skipped; Accepted/Pending/Rejected are uploaded.")
         if not st.session_state.ims_json_data:
             st.warning("Please upload/process IMS JSON first.")
         elif action.empty:
