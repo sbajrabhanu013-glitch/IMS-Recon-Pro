@@ -1301,12 +1301,13 @@ def generate_gst_upload_json_from_final_actions(original_json: dict, action_df: 
       "invdata": {"b2b": [ ... ]}
     }
 
-    This V3 generator is stricter:
+    This V4 generator is strict and GST-utility style:
     - lowercase invdata section keys
     - no imsDetails wrapper
     - no tradenm/hash/remarks/internal fields
-    - No Action/N records are NOT exported
-    - only A/P/R records are exported
+    - every original IMS JSON record is actively actioned by default
+    - Matched/manual Accepted => A
+    - Unmatched/missing/No Action/Review => P (Pending), so records do not remain No Action on portal
     - invalid identity records are skipped and shown in summary
     """
     if not isinstance(original_json, dict) or not original_json:
@@ -1359,17 +1360,24 @@ def generate_gst_upload_json_from_final_actions(original_json: dict, action_df: 
                 or action_map.get((str(section_key).lower(), gstin, doc_norm))
                 or action_map.get((gstin, doc_norm))
             )
+
+            # Very important GST IMS rule for this project:
+            # after reconciliation, every IMS invoice should be actioned.
+            # Matched records become Accepted. All records not found/mapped in the
+            # Action Center are treated as Pending, not No Action, because the
+            # portal otherwise continues to show them under No Action.
             if not status:
-                skipped_rows.append({"Section": section, "Supplier GSTIN": gstin, "Document No": doc_no, "Reason": "Record not present in Action Center"})
-                continue
+                status = "Pending"
 
             action_code = action_label_to_gst_code(status)
 
-            # Official upload JSON should contain only actioned records.
-            # No Action means do not send the record in the upload JSON.
+            # For GST upload, do not leave JSON records as N/No Action.
+            # If the app/user action is No Action or Review, keep it Pending so
+            # the portal moves it out of No Action and the user can take final
+            # action later from IMS dashboard if required.
             if action_code == "N":
-                skipped_rows.append({"Section": section, "Supplier GSTIN": gstin, "Document No": doc_no, "Reason": "No Action skipped from GST upload JSON"})
-                continue
+                status = "Pending"
+                action_code = "P"
 
             upload_item = _clean_ims_upload_record(item, action_code)
             missing = _record_missing_mandatory(upload_item)
@@ -1405,7 +1413,7 @@ def generate_gst_upload_json_from_final_actions(original_json: dict, action_df: 
     invdata = {k: v for k, v in invdata.items() if isinstance(v, list) and len(v) > 0}
 
     if not invdata:
-        raise ValueError("No actioned IMS records found for GST JSON generation. Please keep at least one Accepted/Pending/Rejected action.")
+        raise ValueError("No valid IMS records found for GST JSON generation. Please check the uploaded GST IMS JSON.")
 
     upload_json = {
         "rtin": str(original_json.get("rtin", st.session_state.get("client_gstin", ""))).strip(),
