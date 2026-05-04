@@ -1141,11 +1141,27 @@ def read_action_status_from_utility_xlsm(xlsm_bytes: bytes) -> Tuple[dict, pd.Da
 
 
 def get_json_section_map() -> dict:
+    """
+    Map downloaded IMS section names to the exact upload JSON section keys.
+
+    Important: GST portal upload schema is case-sensitive. The official utility output
+    uses lowercase keys inside `invdata` like `b2b`, not display names like `B2B`.
+    """
     return {
-        "b2b": "B2B", "b2ba": "B2BA", "b2bdn": "B2B-DN", "b2bdna": "B2B-DNA",
-        "b2bcn": "B2B-CN", "b2bcna": "B2B-CNA", "cdnr": "B2B-CN", "cdnra": "B2B-CNA",
-        "dn": "B2B-DN", "dna": "B2B-DNA", "cn": "B2B-CN", "cna": "B2B-CNA",
-        "eco": "ECO", "ecoa": "ECOA"
+        "b2b": "b2b",
+        "b2ba": "b2ba",
+        "b2bdn": "b2bdn",
+        "b2bdna": "b2bdna",
+        "b2bcn": "b2bcn",
+        "b2bcna": "b2bcna",
+        "cdnr": "b2bcn",
+        "cdnra": "b2bcna",
+        "dn": "b2bdn",
+        "dna": "b2bdna",
+        "cn": "b2bcn",
+        "cna": "b2bcna",
+        "eco": "eco",
+        "ecoa": "ecoa",
     }
 
 
@@ -1222,47 +1238,37 @@ def _compact_json_number(value):
 
 def _clean_ims_upload_record(source_item: dict, action_code: str, remarks: str = "") -> dict:
     """
-    Create one record in the same shape as GST Offline Utility generated JSON.
+    Create one IMS upload record in the same schema as the official GST IMS Offline Utility output.
 
-    Important schema difference found from the real GST utility output:
-    Download JSON     : rtin + imsDetails + extra fields like tradenm/hash
-    Upload JSON       : rtin + reqtyp='SAVE' + invdata + invoice records
-    Utility output    : excludes tradenm/hash and keeps only GST upload fields.
+    Schema-safe rule:
+    - Do NOT copy all downloaded JSON keys.
+    - Do NOT include helper/non-upload fields such as tradenm/hash.
+    - Do NOT include remarks unless GST officially accepts it; the user's official utility sample has no remarks key.
+    - Keep only the exact field set/order observed in the official utility output.
     """
-    skip_keys = {
-        "tradenm", "tradeNm", "tradeName", "hash", "__section", "__path",
-        "supplier_name", "document_norm", "source", "ims_sheet"
-    }
-
-    # Prefer the same order as GST Offline Utility generated JSON for B2B records.
     preferred_order = [
-        "stin", "inum", "nt_num", "inv_typ", "ntty", "idt", "nt_dt", "val", "action", "pos",
-        "txval", "iamt", "camt", "samt", "cess", "srcform", "rtnprd", "srcfilstatus",
+        "stin", "inum", "inv_typ", "idt", "val", "action", "pos", "txval",
+        "iamt", "camt", "samt", "cess", "srcform", "rtnprd", "srcfilstatus",
         "ispendactblocked", "isRemarksBlocked"
     ]
+
+    # Note/debit-note style fields if present in non-B2B sections. These are included only
+    # when present in the original GST JSON, preserving the original field names.
+    note_fields = ["nt_num", "nt_dt", "ntty", "ont_num", "ont_dt", "oinum", "oidt"]
 
     out = {}
     for key in preferred_order:
         if key == "action":
             out["action"] = action_code
-        elif key in source_item and key not in skip_keys:
+        elif key in source_item:
             out[key] = _compact_json_number(source_item.get(key))
 
-    # Preserve any other original GST upload-compatible keys but remove non-upload/helper fields.
-    for key, value in source_item.items():
-        if key in out or key in skip_keys:
-            continue
-        if str(key).startswith("__"):
-            continue
-        out[key] = _compact_json_number(value)
+    for key in note_fields:
+        if key in source_item and key not in out:
+            out[key] = _compact_json_number(source_item.get(key))
 
-    # Make sure action is present even if the source record had no action key.
+    # Make action mandatory.
     out["action"] = action_code
-
-    # Remarks: include only when user actually enters remarks and remarks are not blocked.
-    # Kept optional because GST utility output does not include blank remarks.
-    if remarks and str(source_item.get("isRemarksBlocked", source_item.get("isremarksblocked", "N"))).upper() != "Y":
-        out["remarks"] = remarks[:250]
 
     return out
 
