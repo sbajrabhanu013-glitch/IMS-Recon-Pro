@@ -25,7 +25,7 @@ APP_TITLE = "IMS Recon Pro"
 APP_TAGLINE = "Intelligent GST IMS Reconciliation & Action Management Platform"
 COPYRIGHT_OWNER = "@BAJRABHANU"
 APP_DB = "ims_recon_pro.db"
-ENGINE_VERSION = "2026.05.08-V10.1-QUALITY-CARDS"
+ENGINE_VERSION = "2026.05.08-V10.2"
 
 IMS_SHEETS = ["B2B", "B2BA", "B2B-DN", "B2B-DNA", "B2B-CN", "B2B-CNA"]
 ACTION_VALUES = ["No Action", "Accepted", "Rejected", "Pending", "Review"]
@@ -995,6 +995,62 @@ def inject_css():
     """, unsafe_allow_html=True)
 
 
+
+# =========================================================
+# V10.2 QUALITY CARD HELPERS
+# =========================================================
+
+def v10_render_html(html: str):
+    """Render premium HTML cards safely in Streamlit."""
+    st.markdown(str(html), unsafe_allow_html=True)
+
+
+def v10_empty_upload_notice(title: str, text: str):
+    st.markdown(f"""
+    <div class='v10-empty-state'>
+        <div class='v10-empty-icon'>📤</div>
+        <div class='v10-empty-title'>{title}</div>
+        <div class='v10-empty-text'>{text}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def v10_df_loaded(df) -> bool:
+    return isinstance(df, pd.DataFrame) and not df.empty
+
+
+def v10_quality_cards_section():
+    """Show Purchase/IMS premium quality cards only after data is actually uploaded."""
+    p = st.session_state.get("purchase_df", pd.DataFrame())
+    ims = st.session_state.get("ims_df", pd.DataFrame())
+
+    if not v10_df_loaded(p) and not v10_df_loaded(ims):
+        v10_empty_upload_notice(
+            "Upload files to view quality summary",
+            "Purchase Register and IMS JSON quality cards will appear here after you upload and process the files."
+        )
+        return
+
+    st.markdown("### Upload Quality Summary")
+    c1, c2 = st.columns(2)
+
+    with c1:
+        if v10_df_loaded(p):
+            v10_render_html(v10_quality_card(p, "Purchase Register Quality"))
+        else:
+            v10_empty_upload_notice(
+                "Purchase Register not processed",
+                "Upload and process Purchase Register to view Records, Taxable Value, IGST, CGST, SGST, CESS and Total Tax."
+            )
+
+    with c2:
+        if v10_df_loaded(ims):
+            v10_render_html(v10_quality_card(ims, "IMS JSON Quality"))
+        else:
+            v10_empty_upload_notice(
+                "IMS JSON not processed",
+                "Upload and process GST IMS JSON to view Records, Taxable Value, IGST, CGST, SGST, CESS and Total Tax."
+            )
 
 # =========================================================
 # DATA PROCESSING
