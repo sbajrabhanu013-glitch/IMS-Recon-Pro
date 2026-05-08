@@ -243,341 +243,320 @@ def inject_css():
     st.markdown("""
     <style>
         :root {
-            --gst-dark:#102965;
-            --gst-darker:#071b4a;
-            --gst-nav:#2f578f;
-            --gst-nav-active:#21c7bc;
-            --page-bg:#dbe8f7;
-            --panel:#ffffff;
-            --panel-soft:#f4f8fd;
-            --border:#c7d8ec;
-            --text:#0c2148;
-            --muted:#536986;
-            --gold:#f0b429;
-            --blue:#1f6fd1;
-            --green:#138808;
-            --red:#d94332;
+            --navy:#061a3e; --navy2:#0b2d66; --blue:#2563eb; --cyan:#38bdf8;
+            --saffron:#ff9933; --green:#138808; --gold:#f3b34d; --red:#dc463f;
+            --bg1:#d8e7f7; --bg2:#b9cde8; --card:#ffffff; --border:#c8d8ec;
+            --text:#102244; --muted:#5c708f;
         }
 
         .stApp {
             background:
-                linear-gradient(180deg, #e7f0fb 0%, #d6e5f5 38%, #cfe1f3 100%) !important;
+                radial-gradient(circle at 12% 8%, rgba(255,153,51,0.20), transparent 26%),
+                radial-gradient(circle at 88% 16%, rgba(56,189,248,0.18), transparent 28%),
+                radial-gradient(circle at 88% 82%, rgba(19,136,8,0.13), transparent 30%),
+                linear-gradient(135deg, #dbeafe 0%, #c7d9ef 48%, #e4eef9 100%);
+            color: var(--text);
         }
 
         header[data-testid="stHeader"] {
-            visibility: visible !important;
-            height: auto !important;
-            background: rgba(219,232,247,0.92) !important;
-            backdrop-filter: blur(8px);
-            border-bottom:1px solid rgba(7,27,74,0.08);
+            background: rgba(224, 236, 249, 0.88) !important;
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(11,45,102,0.10);
         }
+
         div[data-testid="stToolbar"] { visibility:hidden; height:0; }
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
 
         .block-container {
-            padding-top: 1rem;
-            padding-bottom: 1.5rem;
-            max-width: 1260px;
+            padding-top: 1.05rem;
+            padding-bottom: 2rem;
+            max-width: 1560px;
         }
 
         .gst-shell {
-            border-radius: 0 0 22px 22px;
-            overflow:hidden;
-            box-shadow:0 14px 34px rgba(7,27,74,0.16);
-            border:1px solid rgba(255,255,255,0.45);
-            margin-bottom:18px;
-            background:#ffffff;
+            border-radius: 28px;
+            overflow: hidden;
+            border: 1px solid rgba(198,216,236,0.95);
+            background: #ffffff;
+            box-shadow: 0 18px 45px rgba(7, 26, 61, 0.16);
+            margin-bottom: 18px;
         }
+
         .gst-top-strip {
-            background:#071b4a;
-            color:#ffffff;
-            min-height:28px;
-            display:flex;
-            justify-content:flex-end;
-            align-items:center;
-            gap:18px;
-            padding:4px 18px;
-            font-size:13px;
-            font-weight:700;
+            min-height: 34px;
+            background: linear-gradient(90deg, #061a3e 0%, #0b2d66 60%, #061a3e 100%);
+            display:flex; align-items:center; justify-content:flex-end;
+            gap:18px; padding: 0 22px;
+            color:#dceaff; font-size: 12px; letter-spacing:.02em;
         }
+
         .gst-masthead {
-            background: linear-gradient(90deg, #112965 0%, #0e2c68 58%, #12346f 100%);
-            color:white;
-            display:flex;
-            align-items:center;
-            justify-content:space-between;
-            gap:22px;
-            padding:22px 30px;
-            min-height:118px;
-        }
-        .gst-brand {
-            display:flex;
-            align-items:center;
-            gap:20px;
-            min-width:0;
-        }
-        .gst-emblem {
-            width:72px;
-            height:72px;
-            border-radius:10px;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            color:#ffffff;
-            font-size:44px;
-            background:rgba(255,255,255,0.08);
-            border:1px solid rgba(255,255,255,0.16);
-        }
-        .gst-title {
-            font-size:34px;
-            font-weight:500;
-            letter-spacing:.2px;
-            line-height:1.08;
-            color:#ffffff;
-        }
-        .gst-subtitle {
-            margin-top:8px;
-            font-size:20px;
-            line-height:1.25;
-            color:#ffffff;
-            font-weight:400;
-        }
-        .gst-action-wrap {
-            display:flex;
-            gap:12px;
-            align-items:center;
-            justify-content:flex-end;
-            flex-wrap:wrap;
-        }
-        .gst-flag-wrap {
-            display:flex;
-            align-items:center;
-            justify-content:flex-end;
-        }
-        .gst-floating-flag {
-            width:170px;
-            height:106px;
-            border-radius:10px;
             position:relative;
-            overflow:hidden;
             background:
-                linear-gradient(to bottom, #ff9933 0 33.33%, #ffffff 33.33% 66.66%, #138808 66.66% 100%);
+                linear-gradient(120deg, rgba(255,153,51,0.14), transparent 28%),
+                linear-gradient(90deg, #08214f 0%, #0b3677 52%, #123d82 100%);
+            min-height: 150px;
+            padding: 28px 32px;
+            display:flex; align-items:center; justify-content:space-between;
+            gap:24px; overflow:hidden;
+        }
+
+        .gst-masthead::after {
+            content:""; position:absolute; right:-130px; top:-170px;
+            width:420px; height:420px; border-radius:50%;
+            background: radial-gradient(circle, rgba(255,255,255,0.16), transparent 62%);
+        }
+
+        .gst-brand { position:relative; z-index:2; display:flex; align-items:center; gap:20px; min-width:0; }
+
+        .gst-emblem {
+            width:78px; height:78px; border-radius:22px;
+            display:flex; align-items:center; justify-content:center;
+            color:#ffffff; font-size:42px;
+            background: linear-gradient(135deg, rgba(255,153,51,0.95), rgba(19,136,8,0.88));
+            border:1px solid rgba(255,255,255,0.22);
+            box-shadow:0 14px 30px rgba(0,0,0,0.20);
+        }
+
+        .gst-title {
+            font-size: 36px; font-weight: 900; letter-spacing: -.02em;
+            line-height: 1.05; color:#ffffff;
+        }
+
+        .gst-subtitle {
+            margin-top: 8px; font-size: 18px; line-height: 1.3;
+            color:#edf5ff; font-weight: 500;
+        }
+
+        .header-note { margin-top: 7px; font-size: 13px; color:#cfe0fb; }
+
+        .gst-action-wrap {
+            position:relative; z-index:2; display:flex; align-items:center;
+            justify-content:flex-end; min-width: 220px;
+        }
+
+        .gst-floating-flag {
+            width: 150px; height: 92px; border-radius: 14px;
+            position: relative; overflow: hidden;
+            background: linear-gradient(to bottom, #ff9933 0 33.33%, #ffffff 33.33% 66.66%, #138808 66.66% 100%);
             border:1px solid rgba(255,255,255,0.45);
-            box-shadow:0 12px 26px rgba(0,0,0,0.22);
-            animation: gstFlagFloat 3.6s ease-in-out infinite;
+            box-shadow: 0 14px 28px rgba(0,0,0,0.24);
+            animation: gstFlagFloat 3.8s ease-in-out infinite;
         }
-        .gst-floating-flag::before {
-            content:"";
-            position:absolute;
-            inset:0;
-            background: linear-gradient(100deg, rgba(255,255,255,0.18) 10%, rgba(255,255,255,0.04) 28%, rgba(0,0,0,0.08) 52%, rgba(255,255,255,0.04) 76%, rgba(255,255,255,0.18) 100%);
-            background-size: 180% 100%;
-            animation: gstFlagWave 4.4s linear infinite;
-        }
+
         .gst-floating-flag::after {
-            content:"☸";
-            position:absolute;
-            left:50%;
-            top:50%;
+            content:"☸"; position:absolute; left:50%; top:50%;
             transform:translate(-50%, -50%);
-            color:#0a3d91;
-            font-size:30px;
-            font-weight:700;
-            z-index:2;
+            color:#0a3d91; font-size:28px; font-weight:800; z-index:2;
         }
-        .gst-flag-pole {
-            width:8px;
-            height:120px;
-            border-radius:8px;
-            background: linear-gradient(180deg, #d8dce2, #96a3b8);
-            margin-right:10px;
-            box-shadow: inset 0 0 3px rgba(0,0,0,0.2);
-        }
+
         @keyframes gstFlagFloat {
             0%,100% { transform: translateY(0px); }
-            50% { transform: translateY(-4px); }
+            50% { transform: translateY(-5px); }
         }
-        @keyframes gstFlagWave {
-            0% { background-position: 160% 0; }
-            100% { background-position: -40% 0; }
-        }
+
         .gst-meta-row {
-            background:#eef5ff;
-            border-top:1px solid #c6d6eb;
-            padding:14px 18px;
+            background: linear-gradient(90deg, #eef5ff 0%, #e7f0fb 100%);
+            border-top: 1px solid #c9d9ee;
+            padding: 16px 18px;
             display:grid;
             grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap:12px;
+            gap:14px;
         }
+
         .gst-meta-card {
-            background:#ffffff;
-            border:1px solid #c7d8ec;
-            border-radius:10px;
-            min-height:62px;
-            padding:11px 14px;
-            display:flex;
-            align-items:center;
-            gap:12px;
+            background:#ffffff; border:1px solid #ceddf0; border-radius:18px;
+            min-height:72px; padding:14px 16px;
+            display:flex; align-items:center; gap:12px;
+            box-shadow:0 8px 18px rgba(7,26,61,0.06);
         }
+
         .gst-meta-icon {
-            width:38px;
-            height:38px;
-            border-radius:8px;
-            background:#edf4ff;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            font-size:18px;
-            flex-shrink:0;
+            width:44px; height:44px; border-radius:14px;
+            background:linear-gradient(135deg,#eef6ff,#dbeafe);
+            display:flex; align-items:center; justify-content:center;
+            font-size:21px; flex-shrink:0;
         }
+
         .gst-meta-label {
-            color:#5e7390;
-            font-size:12px;
-            margin-bottom:2px;
+            font-size:12px; color:var(--muted); font-weight:700;
+            text-transform:uppercase; letter-spacing:.04em;
         }
+
         .gst-meta-value {
-            color:#071b4a;
-            font-weight:800;
-            font-size:15px;
-            line-height:1.25;
-            overflow-wrap:anywhere;
+            font-size:15px; color:var(--text); font-weight:800;
+            line-height:1.25; margin-top:3px;
         }
 
-        .gst-nav-title {
-            background:#2f578f;
-            color:#fff;
-            font-size:16px;
-            font-weight:800;
-            padding:12px 16px;
-            border-radius:12px 12px 0 0;
-            border:1px solid rgba(255,255,255,0.18);
-            border-bottom:0;
-        }
-        .gst-nav-panel {
-            background:#ffffff;
-            border:1px solid #b9cce4;
-            border-radius:0 0 14px 14px;
-            padding:12px;
-            margin-bottom:18px;
-            box-shadow:0 10px 22px rgba(7,27,74,0.08);
+        .main-shell, .panel, .metric-card, .small-card {
+            background: rgba(255,255,255,0.96);
+            border: 1px solid rgba(200,216,236,0.98);
+            box-shadow: 0 14px 35px rgba(7,26,61,0.12);
         }
 
-        div[data-testid="stButton"] > button {
-            border-radius:6px;
-            border:1px solid #2e5a95;
-            background:#2f578f;
-            color:#ffffff;
-            min-height:46px;
-            font-weight:700;
-            box-shadow:none;
-        }
-        div[data-testid="stButton"] > button:hover {
-            background:#21c7bc;
-            color:#071b4a;
-            border-color:#21c7bc;
-        }
-        div[data-testid="stButton"] > button[kind="primary"] {
-            background:#102965;
-            color:#ffffff;
-            border-color:#102965;
+        .main-shell { border-radius: 26px; overflow: hidden; margin-bottom: 18px; }
+        .content-pad { padding: 30px; position:relative; }
+        .panel, .metric-card, .small-card { border-radius: 24px; padding: 20px 22px; height: 100%; }
+        .panel { background: linear-gradient(180deg,#ffffff,#f8fbff); }
+
+        .metric-card { position:relative; overflow:hidden; }
+        .metric-card::after {
+            content:""; position:absolute; right:-36px; bottom:-48px;
+            width:115px; height:115px; border-radius:50%;
+            background: rgba(37,99,235,0.07);
         }
 
-        .main-shell,
-        .panel,
-        .metric-card,
-        .small-card {
-            background:#ffffff;
-            border:1px solid var(--border);
-            box-shadow:0 12px 28px rgba(7,27,74,.10);
+        .metric-top {display:flex;align-items:center;gap:15px;position:relative;z-index:2;}
+        .metric-icon {
+            width:58px;height:58px;border-radius:18px;
+            display:flex;align-items:center;justify-content:center;
+            font-size:25px;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.55);
         }
-        .main-shell {
-            border-radius:16px;
-            overflow:hidden;
-            margin-bottom:18px;
+        .metric-label {
+            font-size:13px;color:#60748f;font-weight:800;
+            text-transform:uppercase;letter-spacing:.04em;
         }
-        .panel, .metric-card, .small-card {
-            border-radius:14px;
-            padding:18px 20px;
-            height:100%;
-        }
-        .content-pad {padding:26px; position:relative;}
-        .watermark {
-            position:absolute; left:50%; top:46%; transform:translate(-50%,-50%);
-            font-size:190px; color:rgba(14,41,90,.035); pointer-events:none;
-        }
-        .headline {font-size:20px;color:#0d4f9b;font-weight:800;}
-        .main-title {font-size:30px;font-weight:900;color:#071b4a;line-height:1.24;margin-top:8px;}
-        .subcopy {font-size:16px;color:#52637d;margin-top:10px;line-height:1.5;}
+        .metric-value {font-size:33px;font-weight:900;color:#112244;line-height:1.15;}
+        .metric-delta {font-size:13px;color:#12a150;margin-top:5px;font-weight:700;}
+        .metric-delta.red {color:#e1563a;}
+
+        .panel-title {font-size:20px;font-weight:900;color:#112244;}
+        .section-title {font-size:28px;font-weight:950;color:#102244;margin:10px 0 4px 0;}
+        .section-sub {font-size:15px;color:#60748f;margin-bottom:18px;}
+
+        .headline {font-size:21px;color:#e98012;font-weight:900;}
+        .main-title {font-size:34px;font-weight:950;color:#112244;line-height:1.18;margin-top:8px;}
+        .subcopy {font-size:17px;color:#52637d;margin-top:12px;line-height:1.5;}
+
         .cta-dark,.cta-light {
-            display:inline-block;padding:12px 22px;border-radius:8px;font-weight:800;text-decoration:none;font-size:15px;margin-right:10px;margin-top:18px;
+            display:inline-block; padding:13px 24px; border-radius:16px;
+            font-weight:900; text-decoration:none; font-size:15px;
+            margin-right:10px; margin-top:20px;
         }
-        .cta-dark {background:#102965;color:white;box-shadow:0 10px 18px rgba(11,42,93,.18);}
-        .cta-light {background:white;color:#102965;border:1px solid #b9cce4;}
+        .cta-dark {background:linear-gradient(135deg,#0b2d66,#2563eb);color:white;box-shadow:0 12px 22px rgba(11,42,93,.22);}
+        .cta-light {background:white;color:#0b2a5d;border:1px solid #d0def0;}
 
-        .metric-top {display:flex;align-items:center;gap:14px;}
-        .metric-icon {width:54px;height:54px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;}
-        .metric-label {font-size:14px;color:#59708d;}
-        .metric-value {font-size:32px;font-weight:900;color:#071b4a;line-height:1.15;}
-        .metric-delta {font-size:13px;color:#128047;margin-top:6px;}
-        .metric-delta.red {color:#d94332;}
-        .panel-title {font-size:18px;font-weight:900;color:#071b4a;}
-        .feature-card {background:#f7fbff;border:1px solid #c7d8ec;border-radius:12px;padding:14px 16px;margin-bottom:12px;}
-        .feature-card.blue {background:#f2f7ff;border-color:#c7d8ec;}
-        .feature-card.green {background:#f4fbf5;border-color:#cce5d1;}
-        .feature-title {font-weight:800;color:#0d2d63;font-size:16px;}
+        .feature-card {
+            background:linear-gradient(180deg,#fffaf1,#fff7eb);
+            border:1px solid #f0dfc0; border-radius:18px;
+            padding:15px 17px; margin-bottom:13px;
+            box-shadow:0 8px 18px rgba(7,26,61,0.06);
+        }
+        .feature-card.blue {background:linear-gradient(180deg,#f5f9ff,#eef5ff);border-color:#d6e4ff;}
+        .feature-card.green {background:linear-gradient(180deg,#f5fbf3,#eff9ec);border-color:#d8ead0;}
+        .feature-title {font-weight:900;color:#23385d;font-size:16px;}
         .feature-desc {font-size:13px;color:#5f6f89;line-height:1.4;margin-top:4px;}
-        .shield-center {width:130px;height:130px;border-radius:18px;margin:0 auto 18px auto;background:linear-gradient(135deg,#edf4ff,#ffffff);display:flex;align-items:center;justify-content:center;font-size:56px;box-shadow:0 10px 24px rgba(16,34,68,.12);border:1px solid #c7d8ec;}
-        .section-title {font-size:26px;font-weight:900;color:#071b4a;margin:8px 0 4px 0;}
-        .section-sub {font-size:14px;color:#60748f;margin-bottom:18px;}
+        .shield-center {
+            width:140px;height:140px;border-radius:50%;margin:0 auto 18px auto;
+            background:radial-gradient(circle at 30% 30%,#fffef4,#f8f0d2 55%,#ead39f 100%);
+            display:flex;align-items:center;justify-content:center;font-size:62px;
+            box-shadow:inset 0 0 0 10px rgba(255,255,255,.65),0 12px 28px rgba(194,165,97,.18);
+        }
 
-        .login-bg {
-            min-height:calc(100vh - 40px); display:flex; align-items:center; justify-content:center;
-            background:linear-gradient(135deg,#071b4a,#12346f);
-            border-radius:18px; position:relative; overflow:hidden;
+        .watermark {
+            position:absolute;left:50%;top:47%;transform:translate(-50%,-50%);
+            font-size:230px;color:rgba(14,41,90,.035);pointer-events:none;
         }
-        .login-card {
-            width:460px; background:rgba(255,255,255,.97); border:1px solid rgba(255,255,255,.7);
-            border-radius:16px; padding:34px; box-shadow:0 30px 80px rgba(0,0,0,.28);
+
+        .stTextInput input, .stNumberInput input, .stDateInput input, .stTextArea textarea {
+            border-radius: 14px !important;
+            border: 1px solid #cdddf0 !important;
+            background: #ffffff !important;
         }
-        .login-title {font-size:34px;font-weight:900;color:#071b4a;text-align:center;}
-        .login-sub {font-size:15px;color:#566982;text-align:center;margin-bottom:22px;}
-        .copyright-float {display:none;}
+
+        .stSelectbox div[data-baseweb="select"] > div {
+            border-radius: 14px !important;
+            border-color: #cdddf0 !important;
+        }
+
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 8px; background:#edf4ff; padding:8px;
+            border-radius:18px; border:1px solid #cfdded;
+        }
+        .stTabs [data-baseweb="tab"] {
+            border-radius:14px; padding:10px 16px; font-weight:800;
+        }
+        .stTabs [aria-selected="true"] {
+            background:#ffffff !important; color:#0b2d66 !important;
+            box-shadow:0 8px 16px rgba(7,26,61,0.08);
+        }
+
+        div[data-testid="stDataFrame"] {
+            border-radius: 18px; overflow:hidden;
+            border:1px solid #cfdff0;
+            box-shadow:0 8px 18px rgba(7,26,61,0.06);
+        }
+
+        div[data-testid="stHorizontalBlock"] .stButton > button {
+            border-radius: 16px !important;
+            min-height: 48px !important;
+            border: 1px solid #c9d9ee !important;
+            background: linear-gradient(180deg, #ffffff, #f2f7ff) !important;
+            color: #0d2d63 !important;
+            font-weight: 800 !important;
+            box-shadow: 0 6px 14px rgba(7,26,61,0.06) !important;
+        }
+
+        div[data-testid="stHorizontalBlock"] .stButton > button:hover {
+            border-color: #2563eb !important;
+            background: linear-gradient(180deg, #eef6ff, #dbeafe) !important;
+            color: #071a3d !important;
+            transform: translateY(-1px);
+        }
 
         .footer-bar {
-            margin-top:18px;
-            border-radius:14px;
-            background:linear-gradient(90deg,#071b4a 0%,#102965 48%,#071b4a 100%);
-            color:white;
-            padding:18px 22px;
-            box-shadow:0 12px 28px rgba(7,26,61,0.14);
+            margin-top: 20px; border-radius: 24px;
+            background: linear-gradient(90deg,#061a3e 0%,#082b61 50%,#061a3e 100%);
+            color:white; padding: 18px 22px;
+            box-shadow: 0 14px 32px rgba(7,26,61,0.16);
         }
         .foot-item {display:flex;align-items:center;gap:10px;justify-content:center;}
-        .foot-main {font-weight:800;}
+        .foot-main {font-weight:900;}
         .foot-sub {font-size:13px;color:#d4e0ff;}
 
-        .stTextInput input, .stNumberInput input, .stDateInput input, .stSelectbox div[data-baseweb="select"] > div {
-            border-radius:8px !important;
+        .login-bg {
+            min-height:calc(100vh - 35px);
+            display:flex; align-items:center; justify-content:center;
+            background:
+                radial-gradient(circle at 18% 12%, rgba(255,153,51,.20), transparent 30%),
+                radial-gradient(circle at 85% 80%, rgba(19,136,8,.16), transparent 32%),
+                linear-gradient(135deg,#071a3d,#0d2d63);
+            border-radius:30px; position:relative; overflow:hidden;
         }
-        .stForm {
-            background:#f8fbff;
-            border:1px solid #c7d8ec;
-            border-radius:14px;
-            padding:16px;
+        .login-bg::after {
+            content:""; position:absolute;
+            width:720px;height:720px;border-radius:50%;
+            right:-220px;top:-260px;
+            background:radial-gradient(circle, rgba(255,255,255,0.13), transparent 62%);
+        }
+        .login-card {
+            width: 470px; background:rgba(255,255,255,.96);
+            border:1px solid rgba(255,255,255,.62);
+            border-radius:32px; padding:38px;
+            box-shadow:0 35px 90px rgba(0,0,0,.30);
+            position:relative; z-index:2;
+        }
+        .login-title {font-size:36px;font-weight:950;color:#071b4a;text-align:center;}
+        .login-sub {font-size:15px;color:#566982;text-align:center;margin-bottom:24px;line-height:1.5;}
+
+        .copyright-float {
+            position:fixed;right:18px;bottom:14px;
+            color:rgba(7,26,61,.20);
+            font-weight:950;letter-spacing:.08em;z-index:99;
         }
 
         @media (max-width: 1100px) {
-            .gst-masthead {flex-direction:column; align-items:flex-start;}
-            .gst-action-wrap {justify-content:flex-start;}
+            .gst-masthead {flex-direction:column;align-items:flex-start;}
             .gst-meta-row {grid-template-columns: repeat(2, minmax(0, 1fr));}
-            .gst-title {font-size:30px;}
-            .gst-subtitle {font-size:18px;}
+            .gst-action-wrap {justify-content:flex-start;}
         }
         @media (max-width: 760px) {
-            .gst-brand {align-items:flex-start;}
-            .gst-emblem {width:58px;height:58px;font-size:34px;}
-            .gst-title {font-size:25px;}
+            .gst-title {font-size:28px;}
             .gst-subtitle {font-size:15px;}
             .gst-meta-row {grid-template-columns: 1fr;}
-            .block-container {padding-top:0.7rem;}
+            .block-container {padding-left:0.75rem;padding-right:0.75rem;}
         }
     </style>
     """, unsafe_allow_html=True)
@@ -2009,25 +1988,23 @@ def top_header():
     st.markdown(f"""
     <div class='gst-shell'>
         <div class='gst-top-strip'>
-            <span>Skip to Main Content</span>
-            <span>◐</span>
-            <span>A+</span>
-            <span>A-</span>
+            <span>IMS Recon Pro</span>
+            <span>•</span>
+            <span>Smart GST IMS Workflow</span>
+            <span>•</span>
+            <span>Designed for India</span>
         </div>
         <div class='gst-masthead'>
             <div class='gst-brand'>
-                <div class='gst-emblem'>🦁</div>
+                <div class='gst-emblem'>🧾</div>
                 <div>
                     <div class='gst-title'>Goods and Services Tax</div>
-                    <div class='gst-subtitle'>IMS Recon Pro — GST Reconciliation Platform</div>
-                    <div class='header-note'>Government-style compliance workspace for Purchase Register vs IMS reconciliation</div>
+                    <div class='gst-subtitle'>IMS Recon Pro — Reconciliation, Action & GST JSON Platform</div>
+                    <div class='header-note'>Premium compliance workspace for Purchase Register vs IMS JSON review</div>
                 </div>
             </div>
             <div class='gst-action-wrap'>
-                <div class='gst-flag-wrap'>
-                    <div class='gst-flag-pole'></div>
-                    <div class='gst-floating-flag' title='Indian Flag'></div>
-                </div>
+                <div class='gst-floating-flag' title='India'></div>
             </div>
         </div>
         <div class='gst-meta-row'>
@@ -2044,8 +2021,8 @@ def top_header():
                 <div><div class='gst-meta-label'>Client / GSTIN</div><div class='gst-meta-value'>{client_name} • {client_gstin}</div></div>
             </div>
             <div class='gst-meta-card'>
-                <div class='gst-meta-icon'>©</div>
-                <div><div class='gst-meta-label'>Copyright</div><div class='gst-meta-value'>{COPYRIGHT_OWNER} • IMS Recon Pro</div></div>
+                <div class='gst-meta-icon'>🛡️</div>
+                <div><div class='gst-meta-label'>System</div><div class='gst-meta-value'>GST JSON Logic Protected</div></div>
             </div>
         </div>
     </div>
@@ -2124,7 +2101,22 @@ def metric_card(icon, label, value, delta="", bg="#edf4ff", fg="#4d8df7", red=Fa
 
 
 def page_title(title: str, subtitle: str):
-    st.markdown(f"<div class='section-title'>{title}</div><div class='section-sub'>{subtitle}</div>", unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <div style="
+            background:linear-gradient(135deg,#ffffff,#f3f8ff);
+            border:1px solid #cbdced;
+            border-radius:22px;
+            padding:20px 24px;
+            margin:8px 0 18px 0;
+            box-shadow:0 12px 28px rgba(7,26,61,0.09);
+        ">
+            <div class='section-title' style='margin:0;'>{title}</div>
+            <div class='section-sub' style='margin:6px 0 0 0;'>{subtitle}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def show_df(df: pd.DataFrame, limit=1000):
