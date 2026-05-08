@@ -25,7 +25,7 @@ APP_TITLE = "IMS Recon Pro"
 APP_TAGLINE = "Intelligent GST IMS Reconciliation & Action Management Platform"
 COPYRIGHT_OWNER = "@BAJRABHANU"
 APP_DB = "ims_recon_pro.db"
-ENGINE_VERSION = "2026.05.04-V7"
+ENGINE_VERSION = "2026.05.08-V10.1-QUALITY-CARDS"
 
 IMS_SHEETS = ["B2B", "B2BA", "B2B-DN", "B2B-DNA", "B2B-CN", "B2B-CNA"]
 ACTION_VALUES = ["No Action", "Accepted", "Rejected", "Pending", "Review"]
@@ -834,7 +834,7 @@ def inject_css():
         .v10-quality-score.bad {background:linear-gradient(135deg,#dc463f,#ef675b);}
         .v10-mini-grid {
             display:grid;
-            grid-template-columns:repeat(3,minmax(0,1fr));
+            grid-template-columns:repeat(4,minmax(0,1fr));
             gap:10px;
         }
         .v10-mini-stat {
@@ -2047,6 +2047,7 @@ def upload_quality_summary(df: pd.DataFrame, label: str) -> pd.DataFrame:
             "Check": check,
             "Records": int(len(subset)),
             "Taxable Value": round(safe_float_value(subset.get("taxable_value", pd.Series(dtype=float)).sum()) if "taxable_value" in subset else 0, 2),
+            "Invoice Value": round(safe_float_value(subset.get("invoice_value", pd.Series(dtype=float)).sum()) if "invoice_value" in subset else 0, 2),
             "IGST": round(safe_float_value(subset.get("igst", pd.Series(dtype=float)).sum()) if "igst" in subset else 0, 2),
             "CGST": round(safe_float_value(subset.get("cgst", pd.Series(dtype=float)).sum()) if "cgst" in subset else 0, 2),
             "SGST": round(safe_float_value(subset.get("sgst", pd.Series(dtype=float)).sum()) if "sgst" in subset else 0, 2),
@@ -2585,7 +2586,7 @@ def login_page():
             <div class='login-sub'>Secure GST IMS Reconciliation Platform<br>© @BAJRABHANU</div>
     """, unsafe_allow_html=True)
 
-    username = st.text_input("User ID", placeholder="MainAdmin / User1 / User2")
+    username = st.text_input("User ID", placeholder="Enter your User ID")
     password = st.text_input("Password", type="password", placeholder="Enter password")
 
     if st.button("🔐 Login Securely", use_container_width=True):
@@ -2803,7 +2804,7 @@ def upload_center_page():
     with tabs[2]:
         show_df(st.session_state.recon_df.head(100))
 
-    st.markdown("### V7.1 Upload Validation — Taxable Value and Tax Head Wise")
+    st.markdown("### V10.1 Upload Validation — Taxable Value and Tax Head Wise")
     vtab1, vtab2, vtab3 = st.tabs(["Purchase Quality", "IMS Quality", "Duplicate Report"])
     with vtab1:
         show_df(upload_quality_summary(st.session_state.purchase_df, "Purchase Register"), 50)
@@ -3490,10 +3491,12 @@ def v10_quality_dashboard():
             <div class='v10-mini-grid'>
                 <div class='v10-mini-stat'><div class='v10-mini-label'>Records</div><div class='v10-mini-value'>{len(df):,}</div></div>
                 <div class='v10-mini-stat'><div class='v10-mini-label'>Taxable</div><div class='v10-mini-value'>₹{taxable:,.0f}</div></div>
-                <div class='v10-mini-stat'><div class='v10-mini-label'>Total Tax</div><div class='v10-mini-value'>₹{total_tax:,.0f}</div></div>
                 <div class='v10-mini-stat'><div class='v10-mini-label'>Invoice Value</div><div class='v10-mini-value'>₹{invoice_value:,.0f}</div></div>
                 <div class='v10-mini-stat'><div class='v10-mini-label'>IGST</div><div class='v10-mini-value'>₹{v10_safe_sum(df, "igst"):,.0f}</div></div>
-                <div class='v10-mini-stat'><div class='v10-mini-label'>CGST + SGST</div><div class='v10-mini-value'>₹{v10_safe_sum(df, "cgst") + v10_safe_sum(df, "sgst"):,.0f}</div></div>
+                <div class='v10-mini-stat'><div class='v10-mini-label'>CGST</div><div class='v10-mini-value'>₹{v10_safe_sum(df, "cgst"):,.0f}</div></div>
+                <div class='v10-mini-stat'><div class='v10-mini-label'>SGST</div><div class='v10-mini-value'>₹{v10_safe_sum(df, "sgst"):,.0f}</div></div>
+                <div class='v10-mini-stat'><div class='v10-mini-label'>CESS</div><div class='v10-mini-value'>₹{v10_safe_sum(df, "cess"):,.0f}</div></div>
+                <div class='v10-mini-stat'><div class='v10-mini-label'>Total Tax</div><div class='v10-mini-value'>₹{total_tax:,.0f}</div></div>
             </div>
         </div>
         """
