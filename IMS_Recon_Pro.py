@@ -558,6 +558,184 @@ def inject_css():
             .gst-meta-row {grid-template-columns: 1fr;}
             .block-container {padding-left:0.75rem;padding-right:0.75rem;}
         }
+    
+        /* ================= V9 SALEABLE UI EDITION ================= */
+        .v9-workflow {
+            background: rgba(255,255,255,0.96);
+            border: 1px solid #c9d9ee;
+            border-radius: 24px;
+            padding: 16px 18px;
+            margin: 0 0 18px 0;
+            box-shadow: 0 14px 34px rgba(7,26,61,0.10);
+        }
+        .v9-workflow-title {
+            font-size: 17px;
+            font-weight: 950;
+            color: #0b2d66;
+            margin-bottom: 12px;
+            display:flex;
+            align-items:center;
+            gap:8px;
+        }
+        .v9-step-grid {
+            display:grid;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            gap: 10px;
+        }
+        .v9-step {
+            position:relative;
+            min-height: 88px;
+            border-radius: 18px;
+            border: 1px solid #d1e0f2;
+            background: linear-gradient(180deg,#ffffff,#f4f8ff);
+            padding: 12px;
+            overflow:hidden;
+        }
+        .v9-step.done {
+            border-color: rgba(19,136,8,0.28);
+            background: linear-gradient(180deg,#ffffff,#effaf1);
+        }
+        .v9-step.active {
+            border-color: rgba(255,153,51,0.55);
+            background: linear-gradient(180deg,#ffffff,#fff5e8);
+            box-shadow: inset 0 0 0 1px rgba(255,153,51,0.16);
+        }
+        .v9-step.pending {
+            border-color: rgba(120,140,170,0.25);
+        }
+        .v9-step-num {
+            width:30px;height:30px;border-radius:10px;
+            display:flex;align-items:center;justify-content:center;
+            font-weight:900;font-size:13px;
+            background:#eaf2ff;color:#0b2d66;margin-bottom:8px;
+        }
+        .v9-step.done .v9-step-num { background:#e9f9ed;color:#138808; }
+        .v9-step.active .v9-step-num { background:#fff0da;color:#c76f00; }
+        .v9-step-label {font-size:13px;font-weight:900;color:#102244;line-height:1.25;}
+        .v9-step-status {font-size:11px;font-weight:800;color:#5c708f;margin-top:5px;}
+        .v9-step.done .v9-step-status {color:#138808;}
+        .v9-step.active .v9-step-status {color:#c76f00;}
+
+        .v9-kpi-strip {
+            display:grid;
+            grid-template-columns: repeat(4, minmax(0,1fr));
+            gap:14px;
+            margin: 14px 0 18px 0;
+        }
+        .v9-kpi {
+            background:linear-gradient(135deg,#ffffff,#f7fbff);
+            border:1px solid #cdddf0;
+            border-radius:22px;
+            padding:18px;
+            box-shadow:0 12px 26px rgba(7,26,61,0.09);
+            min-height:112px;
+            position:relative;
+            overflow:hidden;
+        }
+        .v9-kpi::after {
+            content:"";
+            position:absolute;
+            width:105px;height:105px;right:-38px;bottom:-48px;
+            border-radius:50%;background:rgba(37,99,235,0.08);
+        }
+        .v9-kpi-label {font-size:12px;text-transform:uppercase;letter-spacing:.04em;font-weight:900;color:#60748f;}
+        .v9-kpi-value {font-size:32px;font-weight:950;color:#102244;margin-top:8px;}
+        .v9-kpi-note {font-size:12px;font-weight:800;color:#138808;margin-top:6px;}
+
+        .v9-module-grid {
+            display:grid;
+            grid-template-columns: repeat(3, minmax(0,1fr));
+            gap:16px;
+            margin: 14px 0 20px 0;
+        }
+        .v9-module-card {
+            background:#ffffff;
+            border:1px solid #cdddf0;
+            border-radius:24px;
+            padding:20px;
+            min-height:185px;
+            box-shadow:0 14px 34px rgba(7,26,61,0.10);
+            position:relative;
+            overflow:hidden;
+        }
+        .v9-module-card::before {
+            content:"";
+            position:absolute;left:0;top:0;width:100%;height:6px;
+            background:linear-gradient(90deg,#ff9933,#2563eb,#138808);
+        }
+        .v9-module-icon {
+            width:52px;height:52px;border-radius:16px;
+            display:flex;align-items:center;justify-content:center;
+            background:linear-gradient(135deg,#eef6ff,#dbeafe);
+            font-size:25px;margin-bottom:12px;
+        }
+        .v9-module-title {font-size:18px;font-weight:950;color:#102244;margin-bottom:7px;}
+        .v9-module-desc {font-size:13px;color:#60748f;line-height:1.45;}
+        .v9-module-badge {
+            display:inline-block;margin-top:12px;padding:6px 11px;border-radius:999px;
+            font-size:11px;font-weight:900;background:#eef6ff;color:#0b2d66;border:1px solid #d1e0f2;
+        }
+
+        .v9-readiness {
+            background:linear-gradient(135deg,#071a3d,#0b3677);
+            color:#ffffff;border-radius:26px;padding:24px;
+            border:1px solid rgba(255,255,255,0.18);
+            box-shadow:0 18px 40px rgba(7,26,61,0.18);
+            margin: 14px 0 18px 0;
+        }
+        .v9-readiness-title {font-size:22px;font-weight:950;margin-bottom:12px;}
+        .v9-check-grid {
+            display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;
+        }
+        .v9-check {
+            background:rgba(255,255,255,0.10);
+            border:1px solid rgba(255,255,255,0.14);
+            border-radius:18px;padding:14px;
+            min-height:82px;
+        }
+        .v9-check-icon {font-size:22px;margin-bottom:6px;}
+        .v9-check-label {font-size:13px;font-weight:900;color:#eef5ff;line-height:1.3;}
+
+        .v9-action-badge {
+            display:inline-block;padding:5px 10px;border-radius:999px;
+            font-size:12px;font-weight:900;border:1px solid transparent;
+        }
+        .v9-action-accepted {background:#e9f9ed;color:#138808;border-color:#bfe9c9;}
+        .v9-action-pending {background:#fff3df;color:#b96b00;border-color:#ffd9a8;}
+        .v9-action-rejected {background:#fff0ed;color:#d33a2f;border-color:#ffc8c0;}
+        .v9-action-review {background:#f2ecff;color:#6d3bd1;border-color:#d8c9ff;}
+        .v9-action-no {background:#f1f5f9;color:#475569;border-color:#d7e0ea;}
+
+        .v9-help-box {
+            background:#fffdf6;border:1px solid #f3d9a7;border-radius:20px;
+            padding:16px 18px;margin:12px 0 18px 0;
+            color:#62420d;box-shadow:0 10px 22px rgba(7,26,61,0.06);
+        }
+        .v9-help-title {font-weight:950;font-size:16px;margin-bottom:6px;color:#7a4b00;}
+        .v9-help-text {font-size:13px;line-height:1.5;}
+
+        .v9-report-grid {
+            display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;
+            margin:16px 0;
+        }
+        .v9-report-card {
+            background:#ffffff;border:1px solid #cdddf0;border-radius:22px;
+            padding:18px;box-shadow:0 12px 26px rgba(7,26,61,0.09);
+        }
+        .v9-report-title {font-size:16px;font-weight:950;color:#102244;}
+        .v9-report-desc {font-size:13px;color:#60748f;margin-top:7px;line-height:1.45;}
+
+        @media (max-width: 1150px) {
+            .v9-step-grid {grid-template-columns: repeat(3, minmax(0,1fr));}
+            .v9-module-grid, .v9-report-grid {grid-template-columns: repeat(2,minmax(0,1fr));}
+            .v9-kpi-strip, .v9-check-grid {grid-template-columns: repeat(2,minmax(0,1fr));}
+        }
+        @media (max-width: 760px) {
+            .v9-step-grid, .v9-module-grid, .v9-report-grid, .v9-kpi-strip, .v9-check-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
     </style>
     """, unsafe_allow_html=True)
 
@@ -2169,6 +2347,9 @@ def login_page():
 
 def dashboard_page():
     hero_dashboard()
+    v9_saleable_kpis()
+    v9_home_modules()
+    v9_json_readiness_panel()
 
     p, ims, recon = st.session_state.purchase_df, st.session_state.ims_df, st.session_state.recon_df
     total_itc = float(ims["total_tax"].sum()) if not ims.empty else 0
@@ -2247,6 +2428,7 @@ def client_setup_page():
 
 
 def upload_center_page():
+    v9_help_box('Upload Guidance', 'Upload Purchase Register and GST IMS JSON. Review quality checks before reconciliation to avoid wrong action selection.')
     page_title("Upload Center", "Upload Purchase Register and GST IMS JSON only. The GST utility is now built inside this app.")
 
     st.markdown("### Step 1 — Upload source files")
@@ -2384,6 +2566,7 @@ def ims_data_viewer_page():
 
 
 def reconciliation_page():
+    v9_help_box('Reconciliation Control Room', 'Run reconciliation only after both Purchase Register and IMS JSON are uploaded and validated. Review mismatch categories carefully.')
     page_title("Reconciliation Workspace", "Run IMS reconciliation only when you click Start Reconciliation.")
 
     c1, c2, c3, c4 = st.columns(4)
@@ -2428,6 +2611,7 @@ def reconciliation_page():
 
 
 def action_center_page():
+    v9_help_box('Action Center Guidance', 'Use filters, bulk actions and remarks to finalize invoice-wise IMS action before generating GST upload JSON.')
     page_title("IMS Action Center", "Filter, bulk-update and finalize invoice-wise action/remarks before GST JSON generation.")
     df = st.session_state.action_df
     if df.empty:
@@ -2604,6 +2788,8 @@ Regards,
 
 
 def reports_page():
+    v9_json_readiness_panel()
+    v9_report_cards()
     page_title("Reports & Final GST Upload JSON", "Final review, workpaper export and GST portal upload JSON generation.")
     p, ims, recon, action = st.session_state.purchase_df, st.session_state.ims_df, st.session_state.recon_df, st.session_state.action_df
 
@@ -2764,6 +2950,161 @@ def admin_page():
             st.success("Your saved data has been deleted.")
         else:
             st.error("Please type DELETE exactly.")
+
+
+
+
+# =========================================================
+# V9 SALEABLE UI HELPERS — UI ONLY, NO GST JSON LOGIC CHANGE
+# =========================================================
+
+def v9_status_bool(value) -> bool:
+    try:
+        if isinstance(value, pd.DataFrame):
+            return not value.empty
+        return bool(value)
+    except Exception:
+        return False
+
+
+def v9_workflow_tracker():
+    p_ready = v9_status_bool(st.session_state.get("purchase_df", pd.DataFrame()))
+    ims_ready = v9_status_bool(st.session_state.get("ims_df", pd.DataFrame()))
+    recon_ready = v9_status_bool(st.session_state.get("recon_df", pd.DataFrame()))
+    action_ready = v9_status_bool(st.session_state.get("action_df", pd.DataFrame()))
+    client_ready = bool(st.session_state.get("client_gstin", ""))
+
+    steps = [
+        ("01", "Client Setup", client_ready, st.session_state.get("page") == "Client Setup"),
+        ("02", "Upload Purchase", p_ready, st.session_state.get("page") == "Upload Center"),
+        ("03", "Upload IMS JSON", ims_ready, st.session_state.get("page") == "Upload Center"),
+        ("04", "Reconciliation", recon_ready, st.session_state.get("page") == "Reconciliation Workspace"),
+        ("05", "Action Review", action_ready, st.session_state.get("page") == "Action Center"),
+        ("06", "GST JSON", False, st.session_state.get("page") == "Reports & Export"),
+    ]
+
+    html = ["<div class='v9-workflow'><div class='v9-workflow-title'>🚀 Guided IMS Workflow</div><div class='v9-step-grid'>"]
+    for num, label, done, active in steps:
+        cls = "done" if done else ("active" if active else "pending")
+        status = "Completed" if done else ("Action Required" if active else "Pending")
+        icon = "✓" if done else num
+        html.append(f"""
+        <div class='v9-step {cls}'>
+            <div class='v9-step-num'>{icon}</div>
+            <div class='v9-step-label'>{label}</div>
+            <div class='v9-step-status'>{status}</div>
+        </div>
+        """)
+    html.append("</div></div>")
+    st.markdown("".join(html), unsafe_allow_html=True)
+
+
+def v9_saleable_kpis():
+    p = st.session_state.get("purchase_df", pd.DataFrame())
+    ims = st.session_state.get("ims_df", pd.DataFrame())
+    recon = st.session_state.get("recon_df", pd.DataFrame())
+    action = st.session_state.get("action_df", pd.DataFrame())
+
+    matched = int((recon.get("mismatch_type", pd.Series(dtype=str)) == "Matched").sum()) if isinstance(recon, pd.DataFrame) and not recon.empty else 0
+    pending = int((action.get("final_user_action", pd.Series(dtype=str)) == "Pending").sum()) if isinstance(action, pd.DataFrame) and not action.empty else 0
+    accepted = int((action.get("final_user_action", pd.Series(dtype=str)) == "Accepted").sum()) if isinstance(action, pd.DataFrame) and not action.empty else 0
+    highrisk = int(action.get("risk_level", pd.Series(dtype=str)).isin(["High", "Critical"]).sum()) if isinstance(action, pd.DataFrame) and not action.empty and "risk_level" in action else 0
+
+    st.markdown(f"""
+    <div class='v9-kpi-strip'>
+        <div class='v9-kpi'><div class='v9-kpi-label'>Purchase Register</div><div class='v9-kpi-value'>{len(p):,}</div><div class='v9-kpi-note'>Books records loaded</div></div>
+        <div class='v9-kpi'><div class='v9-kpi-label'>IMS JSON</div><div class='v9-kpi-value'>{len(ims):,}</div><div class='v9-kpi-note'>Portal records loaded</div></div>
+        <div class='v9-kpi'><div class='v9-kpi-label'>Accepted / Matched</div><div class='v9-kpi-value'>{accepted:,}</div><div class='v9-kpi-note'>{matched:,} system matches</div></div>
+        <div class='v9-kpi'><div class='v9-kpi-label'>Pending / Risk</div><div class='v9-kpi-value'>{pending:,}</div><div class='v9-kpi-note'>{highrisk:,} high-risk cases</div></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def v9_home_modules():
+    st.markdown("""
+    <div class='v9-module-grid'>
+        <div class='v9-module-card'>
+            <div class='v9-module-icon'>📤</div>
+            <div class='v9-module-title'>Smart Upload Center</div>
+            <div class='v9-module-desc'>Upload Purchase Register and GST IMS JSON with quality checks, duplicate review and section-wise visibility.</div>
+            <div class='v9-module-badge'>Upload → Validate</div>
+        </div>
+        <div class='v9-module-card'>
+            <div class='v9-module-icon'>🔄</div>
+            <div class='v9-module-title'>Reconciliation Control Room</div>
+            <div class='v9-module-desc'>Review matched, pending, mismatch, duplicate and risk cases in a structured and user-friendly flow.</div>
+            <div class='v9-module-badge'>Recon → Review</div>
+        </div>
+        <div class='v9-module-card'>
+            <div class='v9-module-icon'>✅</div>
+            <div class='v9-module-title'>Action Center</div>
+            <div class='v9-module-desc'>Use filters, manual actions, remarks and bulk review to finalize invoice-wise IMS actions.</div>
+            <div class='v9-module-badge'>Action → Finalize</div>
+        </div>
+        <div class='v9-module-card'>
+            <div class='v9-module-icon'>⚠️</div>
+            <div class='v9-module-title'>Risk Desk</div>
+            <div class='v9-module-desc'>Identify value mismatches, tax-head mismatches, only-in-IMS cases and vendor follow-up requirements.</div>
+            <div class='v9-module-badge'>Risk → Resolve</div>
+        </div>
+        <div class='v9-module-card'>
+            <div class='v9-module-icon'>📊</div>
+            <div class='v9-module-title'>Professional Reports</div>
+            <div class='v9-module-desc'>Download Excel workpapers with summary, final action, mismatch, pending, risk and audit reports.</div>
+            <div class='v9-module-badge'>Report → Export</div>
+        </div>
+        <div class='v9-module-card'>
+            <div class='v9-module-icon'>🧾</div>
+            <div class='v9-module-title'>GST JSON Output</div>
+            <div class='v9-module-desc'>Generate GST portal-ready JSON after final review while keeping the confirmed JSON logic protected.</div>
+            <div class='v9-module-badge'>Review → JSON</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def v9_json_readiness_panel():
+    action = st.session_state.get("action_df", pd.DataFrame())
+    ready = isinstance(action, pd.DataFrame) and not action.empty
+    if ready:
+        accepted = int((action.get("final_user_action", pd.Series(dtype=str)) == "Accepted").sum())
+        pending = int((action.get("final_user_action", pd.Series(dtype=str)) == "Pending").sum())
+        rejected = int((action.get("final_user_action", pd.Series(dtype=str)) == "Rejected").sum())
+        status_line = f"Accepted: {accepted:,} • Pending: {pending:,} • Rejected: {rejected:,}"
+    else:
+        status_line = "Run reconciliation and review actions first"
+
+    st.markdown(f"""
+    <div class='v9-readiness'>
+        <div class='v9-readiness-title'>🛡️ Final GST JSON Readiness</div>
+        <div class='v9-check-grid'>
+            <div class='v9-check'><div class='v9-check-icon'>✅</div><div class='v9-check-label'>GST upload structure protected</div></div>
+            <div class='v9-check'><div class='v9-check-icon'>🧾</div><div class='v9-check-label'>rtin / reqtyp / invdata preserved</div></div>
+            <div class='v9-check'><div class='v9-check-icon'>🔐</div><div class='v9-check-label'>Amendment-safe section handling</div></div>
+            <div class='v9-check'><div class='v9-check-icon'>📌</div><div class='v9-check-label'>{status_line}</div></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def v9_help_box(title, text):
+    st.markdown(f"""
+    <div class='v9-help-box'>
+        <div class='v9-help-title'>{title}</div>
+        <div class='v9-help-text'>{text}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def v9_report_cards():
+    st.markdown("""
+    <div class='v9-report-grid'>
+        <div class='v9-report-card'><div class='v9-report-title'>📘 Final Action Report</div><div class='v9-report-desc'>Invoice-wise final action, remarks and recommended action summary.</div></div>
+        <div class='v9-report-card'><div class='v9-report-title'>⚠️ Risk & Exception Report</div><div class='v9-report-desc'>High-risk cases, mismatches, duplicates and vendor follow-up items.</div></div>
+        <div class='v9-report-card'><div class='v9-report-title'>🧾 JSON Upload Summary</div><div class='v9-report-desc'>Action summary and records prepared for GST portal JSON generation.</div></div>
+    </div>
+    """, unsafe_allow_html=True)
+
 
 
 # =========================================================
