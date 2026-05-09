@@ -33,7 +33,7 @@ ACTION_VALUES = ["No Action", "Accepted", "Rejected", "Pending", "Review"]
 USER_MASTER = {
     "Admin": {"password": "Admin", "role": "Admin", "name": "Admin"},
     "User_1": {"password": "User1", "role": "User-1", "name": "User-1"},
-    "User_2": {"password": "User2", "name": "User-2"},
+    "User_2": {"password": "User2", "role": "User-2", "name": "User-2"},
 }
 
 MONEY_COLS = ["invoice_value", "taxable_value", "igst", "cgst", "sgst", "cess"]
