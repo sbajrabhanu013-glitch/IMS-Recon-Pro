@@ -31,9 +31,9 @@ ENGINE_VERSION = "2026.05.08-V10.2"
 IMS_SHEETS = ["B2B", "B2BA", "B2B-DN", "B2B-DNA", "B2B-CN", "B2B-CNA"]
 ACTION_VALUES = ["No Action", "Accepted", "Rejected", "Pending", "Review"]
 USER_MASTER = {
-    "MainAdmin": {"password": "Adminpwd", "role": "Main Admin", "name": "Main Admin"},
-    "User1": {"password": "Userpwd1", "role": "Sub User", "name": "User One"},
-    "User2": {"password": "Userpwd2", "role": "Sub User", "name": "User Two"},
+    "Admin": {"password": "Admin", "role": "Admin", "name": "Admin"},
+    "User_1": {"password": "User1", "role": "User-1", "name": "User-1"},
+    "User_2": {"password": "User2", "role": "User-2", "name": "User-2"},
 }
 
 MONEY_COLS = ["invoice_value", "taxable_value", "igst", "cgst", "sgst", "cess"]
