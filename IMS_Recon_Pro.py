@@ -85,7 +85,7 @@ COLUMN_ALIASES = {
 
 st.set_page_config(
     page_title=f"{APP_TITLE} | {COPYRIGHT_OWNER}",
-    page_icon="🇮🇳",
+    page_icon="Welcome IMS Reco.",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items=None,
