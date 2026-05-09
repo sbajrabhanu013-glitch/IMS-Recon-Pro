@@ -1041,6 +1041,58 @@ def inject_css():
             color: #60748f;
         }
 
+    
+        /* V10.5 Upload quality full number cards + login cleanup */
+        .quality-value-grid {
+            display:grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap:14px;
+            margin-top: 12px;
+        }
+        .quality-value-card {
+            background: linear-gradient(180deg, #ffffff, #f7fbff);
+            border: 1px solid #d6e4f5;
+            border-radius: 18px;
+            padding: 14px 16px;
+            min-height: 92px;
+            box-shadow: 0 8px 18px rgba(7,26,61,0.07);
+            overflow: visible;
+        }
+        .quality-value-label {
+            font-size: 12px;
+            color:#60748f;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .03em;
+            margin-bottom: 8px;
+        }
+        .quality-value-number {
+            font-size: 22px;
+            line-height: 1.2;
+            color:#102244;
+            font-weight: 950;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+        .quality-value-note {
+            display:inline-block;
+            margin-top:7px;
+            padding:4px 8px;
+            border-radius:999px;
+            background:#e9f9ed;
+            color:#138808;
+            font-size:11px;
+            font-weight:800;
+        }
+        .inalsa-login-welcome, .inalsa-login-sub { display:block !important; }
+        @media (max-width: 1200px) {
+            .quality-value-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 760px) {
+            .quality-value-grid { grid-template-columns: 1fr; }
+        }
+
     </style>
     """, unsafe_allow_html=True)
 
@@ -2302,7 +2354,7 @@ def aggregate(df: pd.DataFrame, label: str) -> pd.DataFrame:
     return out.rename(columns=rename)
 
 
-def calculate_recon(purchase: pd.DataFrame, ims: pd.DataFrame, amount_tol: float, date_tol: int, include_amendments: bool) -> pd.DataFrame:
+def _original_calculate_recon_v105(purchase: pd.DataFrame, ims: pd.DataFrame, amount_tol: float, date_tol: int, include_amendments: bool) -> pd.DataFrame:
     """V7 stronger reconciliation engine.
 
     Matching levels:
@@ -2717,7 +2769,6 @@ def login_page():
         </div>
     </div>
     """, unsafe_allow_html=True)
-
 
 # =========================================================
 # PAGES
@@ -3581,9 +3632,9 @@ def v10_command_center():
 
 def v10_quality_dashboard():
     """
-    Upload Data Quality Dashboard — native Streamlit implementation.
-    No raw HTML is used here, so HTML code cannot appear on screen.
-    UI-only function. GST JSON generation logic is untouched.
+    Upload Data Quality Dashboard — full visible numbers.
+    Uses safe Streamlit markdown rendering only for UI cards.
+    GST JSON generation logic is untouched.
     """
     p = st.session_state.get("purchase_df", pd.DataFrame())
     ims = st.session_state.get("ims_df", pd.DataFrame())
@@ -3600,7 +3651,6 @@ def v10_quality_dashboard():
                 "cess": 0.0,
                 "total_tax": 0.0,
             }
-
         igst = v10_safe_sum(df, "igst")
         cgst = v10_safe_sum(df, "cgst")
         sgst = v10_safe_sum(df, "sgst")
@@ -3623,25 +3673,35 @@ def v10_quality_dashboard():
             return "Review recommended"
         return "Upload/check data"
 
+    def money(v):
+        return f"₹{float(v):,.0f}"
+
     def render_quality(title, df, icon):
         score = v10_quality_score(df)
         data = amount_summary(df)
-
+        cards = [
+            ("Data Quality", f"{score}%", quality_status(score)),
+            ("Records", f"{data['records']:,}", ""),
+            ("Taxable Value", money(data["taxable"]), ""),
+            ("Invoice Value", money(data["invoice_value"]), ""),
+            ("IGST", money(data["igst"]), ""),
+            ("CGST", money(data["cgst"]), ""),
+            ("SGST", money(data["sgst"]), ""),
+            ("CESS", money(data["cess"]), ""),
+            ("Total Tax", money(data["total_tax"]), ""),
+        ]
+        html_cards = []
+        for label, value, note in cards:
+            note_html = f"<div class='quality-value-note'>{note}</div>" if note else ""
+            html_cards.append(f"""
+            <div class='quality-value-card'>
+                <div class='quality-value-label'>{label}</div>
+                <div class='quality-value-number'>{value}</div>
+                {note_html}
+            </div>
+            """)
         st.markdown(f"#### {icon} {title}")
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Data Quality", f"{score}%", quality_status(score))
-        c2.metric("Records", f"{data['records']:,}")
-        c3.metric("Taxable Value", f"₹{data['taxable']:,.0f}")
-        c4.metric("Invoice Value", f"₹{data['invoice_value']:,.0f}")
-
-        c5, c6, c7, c8 = st.columns(4)
-        c5.metric("IGST", f"₹{data['igst']:,.0f}")
-        c6.metric("CGST", f"₹{data['cgst']:,.0f}")
-        c7.metric("SGST", f"₹{data['sgst']:,.0f}")
-        c8.metric("CESS", f"₹{data['cess']:,.0f}")
-
-        c9, _, _, _ = st.columns(4)
-        c9.metric("Total Tax", f"₹{data['total_tax']:,.0f}")
+        st.markdown(f"<div class='quality-value-grid'>{''.join(html_cards)}</div>", unsafe_allow_html=True)
 
     st.markdown("### 📊 Upload Data Quality")
     st.caption("Data health, amount and tax summary for Purchase Register and IMS JSON.")
@@ -3654,7 +3714,6 @@ def v10_quality_dashboard():
     with right:
         with st.container(border=True):
             render_quality("IMS JSON Quality", ims, "🧾")
-
 
 def v10_empty_state(title: str, text: str, icon: str = "📭"):
     st.markdown(f"""
@@ -3811,6 +3870,233 @@ def v10_help_tooltips():
         <div class='v10-tooltip'><div class='v10-tooltip-title'>Final JSON?</div><div class='v10-tooltip-text'>Generated after action review and uploaded back to GST portal.</div></div>
     </div>
     """, unsafe_allow_html=True)
+
+
+
+
+
+# =========================================================
+# ADVANCED RECONCILIATION HELPERS — V10.5
+# GST JSON generation logic is untouched.
+# =========================================================
+
+def advanced_invoice_similarity(a, b) -> float:
+    """
+    Compare invoice numbers where formats differ:
+    Example: 001/2025-26/SA vs 01/25-26/sa.
+    Returns 0 to 1 score.
+    """
+    a_raw = str(a or "").strip().upper()
+    b_raw = str(b or "").strip().upper()
+    a_norm = normalize_doc_no(a_raw)
+    b_norm = normalize_doc_no(b_raw)
+    if not a_norm or not b_norm:
+        return 0.0
+    if a_norm == b_norm:
+        return 1.0
+
+    # Remove leading zeroes from every numeric group
+    def tokenise(x):
+        parts = re.findall(r"[A-Z]+|\d+", str(x).upper())
+        clean = []
+        for p in parts:
+            if p.isdigit():
+                clean.append(str(int(p)) if p.strip("0") else "0")
+            else:
+                clean.append(p)
+        return clean
+
+    ta, tb = tokenise(a_raw), tokenise(b_raw)
+    if ta and tb and ta == tb:
+        return 0.98
+
+    # Compare important numeric/text tokens
+    set_a, set_b = set(ta), set(tb)
+    token_score = len(set_a & set_b) / max(len(set_a | set_b), 1)
+
+    # Sequence ratio fallback from standard library
+    try:
+        from difflib import SequenceMatcher
+        seq_score = SequenceMatcher(None, a_norm, b_norm).ratio()
+    except Exception:
+        seq_score = 0.0
+
+    # Suffix/prefix common cases
+    suffix_score = 0.0
+    if len(a_norm) >= 4 and len(b_norm) >= 4:
+        if a_norm[-4:] == b_norm[-4:]:
+            suffix_score = 0.15
+
+    return min(1.0, max(seq_score, token_score) + suffix_score)
+
+
+def tax_head_mismatch_flag(p_row, ims_row, amount_tolerance: float = 5.0) -> bool:
+    """
+    Detect case where GSTIN, date, invoice, taxable value match but
+    IGST appears in one data and CGST/SGST appears in another, or vice versa.
+    """
+    try:
+        p_igst = float(p_row.get("igst", 0) or 0)
+        p_cgst_sgst = float(p_row.get("cgst", 0) or 0) + float(p_row.get("sgst", 0) or 0)
+        i_igst = float(ims_row.get("igst", 0) or 0)
+        i_cgst_sgst = float(ims_row.get("cgst", 0) or 0) + float(ims_row.get("sgst", 0) or 0)
+
+        p_total = p_igst + p_cgst_sgst + float(p_row.get("cess", 0) or 0)
+        i_total = i_igst + i_cgst_sgst + float(ims_row.get("cess", 0) or 0)
+
+        total_close = abs(p_total - i_total) <= amount_tolerance
+        igst_to_cgst = p_igst > amount_tolerance and i_cgst_sgst > amount_tolerance and i_igst <= amount_tolerance
+        cgst_to_igst = p_cgst_sgst > amount_tolerance and i_igst > amount_tolerance and p_igst <= amount_tolerance
+
+        return bool(total_close and (igst_to_cgst or cgst_to_igst))
+    except Exception:
+        return False
+
+
+def advanced_probable_invoice_match(p_row, ims_row, amount_tolerance: float = 5.0, date_tolerance: int = 2):
+    """
+    Returns (is_match, score, reason) for cases where invoice number format differs
+    but maximum fields are matching.
+    """
+    gstin_match = normalize_gstin(p_row.get("supplier_gstin", "")) == normalize_gstin(ims_row.get("supplier_gstin", ""))
+    if not gstin_match:
+        return False, 0.0, ""
+
+    inv_score = advanced_invoice_similarity(p_row.get("document_no", ""), ims_row.get("document_no", ""))
+    taxable_match = abs(float(p_row.get("taxable_value", 0) or 0) - float(ims_row.get("taxable_value", 0) or 0)) <= amount_tolerance
+    invoice_value_match = abs(float(p_row.get("invoice_value", 0) or 0) - float(ims_row.get("invoice_value", 0) or 0)) <= max(amount_tolerance, 10)
+
+    date_match = False
+    try:
+        pdt = pd.to_datetime(p_row.get("document_date"), errors="coerce")
+        idt = pd.to_datetime(ims_row.get("document_date"), errors="coerce")
+        if pd.notna(pdt) and pd.notna(idt):
+            date_match = abs((pdt - idt).days) <= date_tolerance
+    except Exception:
+        date_match = False
+
+    score = 0
+    score += 35 if inv_score >= 0.78 else int(inv_score * 35)
+    score += 25 if taxable_match else 0
+    score += 20 if invoice_value_match else 0
+    score += 20 if date_match else 0
+
+    if inv_score >= 0.78 and taxable_match and (date_match or invoice_value_match) and score >= 75:
+        return True, score / 100, "Probable Match - invoice number format difference"
+    return False, score / 100, ""
+
+
+
+
+
+def calculate_recon(*args, **kwargs):
+    """
+    Advanced reconciliation wrapper:
+    1. Highlights tax-head mismatch where IGST vs CGST/SGST differ but GSTIN/date/invoice/taxable are otherwise matching.
+    2. Adds probable invoice-number match when maximum fields are matching despite formatting differences.
+    GST JSON generation logic is untouched.
+    """
+    result = _original_calculate_recon_v105(*args, **kwargs)
+
+    try:
+        purchase = st.session_state.get("purchase_df", pd.DataFrame())
+        ims = st.session_state.get("ims_df", pd.DataFrame())
+        tolerance = float(st.session_state.get("amount_tolerance", 5.0))
+        date_tol = int(st.session_state.get("date_tolerance", 2))
+
+        if not isinstance(result, pd.DataFrame) or result.empty:
+            return result
+        if not isinstance(purchase, pd.DataFrame) or purchase.empty or not isinstance(ims, pd.DataFrame) or ims.empty:
+            return result
+
+        if "mismatch_type" not in result.columns:
+            result["mismatch_type"] = ""
+        if "risk_level" not in result.columns:
+            result["risk_level"] = "Low"
+        if "recommended_action" not in result.columns:
+            result["recommended_action"] = "Pending"
+        if "final_user_action" not in result.columns:
+            result["final_user_action"] = result.get("recommended_action", "Pending")
+        if "remarks" not in result.columns:
+            result["remarks"] = ""
+
+        # Existing result keys, to avoid duplicate probable rows.
+        existing_keys = set()
+        if "supplier_gstin" in result.columns:
+            doc_col = "document_norm" if "document_norm" in result.columns else "document_no"
+            existing_keys = set(zip(result["supplier_gstin"].map(normalize_gstin), result[doc_col].astype(str).map(normalize_doc_no)))
+
+        extra_rows = []
+        for _, p_row in purchase.iterrows():
+            p_key = (normalize_gstin(p_row.get("supplier_gstin", "")), normalize_doc_no(p_row.get("document_no", p_row.get("document_norm", ""))))
+            if p_key in existing_keys:
+                continue
+
+            best = None
+            best_score = 0
+            best_reason = ""
+            for _, i_row in ims.iterrows():
+                ok, score, reason = advanced_probable_invoice_match(p_row, i_row, tolerance, date_tol)
+                if ok and score > best_score:
+                    best = i_row
+                    best_score = score
+                    best_reason = reason
+
+            if best is not None:
+                row = p_row.to_dict()
+                row["source"] = "Advanced Reconciliation"
+                row["mismatch_type"] = best_reason
+                row["match_status"] = "Probable Match"
+                row["match_score"] = round(best_score * 100, 2)
+                row["risk_level"] = "Medium"
+                row["recommended_action"] = "Accepted"
+                row["final_user_action"] = "Accepted"
+                row["remarks"] = "Matched by advanced invoice number similarity and value/date checks"
+                row["ims_document_no"] = best.get("document_no", "")
+                row["ims_taxable_value"] = best.get("taxable_value", 0)
+                row["ims_invoice_value"] = best.get("invoice_value", 0)
+                extra_rows.append(row)
+
+        if extra_rows:
+            result = pd.concat([result, pd.DataFrame(extra_rows)], ignore_index=True)
+
+        # Highlight tax head mismatch.
+        for idx, r in result.iterrows():
+            gstin = normalize_gstin(r.get("supplier_gstin", ""))
+            if not gstin or "supplier_gstin" not in ims.columns:
+                continue
+
+            candidates = ims[ims["supplier_gstin"].map(normalize_gstin).eq(gstin)]
+            for _, i_row in candidates.iterrows():
+                inv_sim = advanced_invoice_similarity(r.get("document_no", r.get("document_norm", "")), i_row.get("document_no", ""))
+                taxable_close = abs(float(r.get("taxable_value", 0) or 0) - float(i_row.get("taxable_value", 0) or 0)) <= tolerance
+
+                date_close = True
+                try:
+                    rdt = pd.to_datetime(r.get("document_date"), errors="coerce")
+                    idt = pd.to_datetime(i_row.get("document_date"), errors="coerce")
+                    if pd.notna(rdt) and pd.notna(idt):
+                        date_close = abs((rdt - idt).days) <= date_tol
+                except Exception:
+                    date_close = True
+
+                if inv_sim >= 0.78 and taxable_close and date_close and tax_head_mismatch_flag(r, i_row, tolerance):
+                    result.at[idx, "mismatch_type"] = "Tax Head Mismatch - IGST vs CGST/SGST"
+                    result.at[idx, "match_status"] = "Matched with Tax Head Difference"
+                    result.at[idx, "risk_level"] = "High"
+                    result.at[idx, "recommended_action"] = "Pending"
+                    result.at[idx, "final_user_action"] = "Pending"
+                    old = str(result.at[idx, "remarks"]) if "remarks" in result.columns else ""
+                    result.at[idx, "remarks"] = (old + " | Tax head mismatch detected: IGST vs CGST/SGST").strip(" |")
+                    break
+
+    except Exception as e:
+        try:
+            st.warning(f"Advanced reconciliation condition skipped: {e}")
+        except Exception:
+            pass
+
+    return result
 
 
 
