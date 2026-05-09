@@ -25,7 +25,7 @@ APP_TITLE = "IMS Recon Pro"
 APP_TAGLINE = "Intelligent GST IMS Reconciliation & Action Management Platform"
 COPYRIGHT_OWNER = "@BAJRABHANU"
 APP_DB = "ims_recon_pro.db"
-ENGINE_VERSION = "2026.05.08-V10.2"
+ENGINE_VERSION = "2026.05.04-V7"
 
 IMS_SHEETS = ["B2B", "B2BA", "B2B-DN", "B2B-DNA", "B2B-CN", "B2B-CNA"]
 ACTION_VALUES = ["No Action", "Accepted", "Rejected", "Pending", "Review"]
@@ -834,7 +834,7 @@ def inject_css():
         .v10-quality-score.bad {background:linear-gradient(135deg,#dc463f,#ef675b);}
         .v10-mini-grid {
             display:grid;
-            grid-template-columns:repeat(4,minmax(0,1fr));
+            grid-template-columns:repeat(3,minmax(0,1fr));
             gap:10px;
         }
         .v10-mini-stat {
@@ -991,66 +991,24 @@ def inject_css():
             .v10-action-grid,.v10-mini-grid,.v10-json-checks,.v10-tooltip-grid {grid-template-columns:1fr;}
         }
 
+    
+        /* FINAL FIX: Native Streamlit upload quality metric cards */
+        div[data-testid="stMetric"] {
+            background: linear-gradient(180deg, #ffffff, #f7fbff);
+            border: 1px solid #d6e4f5;
+            border-radius: 16px;
+            padding: 12px 14px;
+            box-shadow: 0 6px 14px rgba(7,26,61,0.06);
+        }
+        div[data-testid="stMetricLabel"] {
+            font-weight: 800;
+            color: #60748f;
+        }
+
     </style>
     """, unsafe_allow_html=True)
 
 
-
-# =========================================================
-# V10.2 QUALITY CARD HELPERS
-# =========================================================
-
-def v10_render_html(html: str):
-    """Render premium HTML cards safely in Streamlit."""
-    st.markdown(str(html), unsafe_allow_html=True)
-
-
-def v10_empty_upload_notice(title: str, text: str):
-    st.markdown(f"""
-    <div class='v10-empty-state'>
-        <div class='v10-empty-icon'>📤</div>
-        <div class='v10-empty-title'>{title}</div>
-        <div class='v10-empty-text'>{text}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-def v10_df_loaded(df) -> bool:
-    return isinstance(df, pd.DataFrame) and not df.empty
-
-
-def v10_quality_cards_section():
-    """Show Purchase/IMS premium quality cards only after data is actually uploaded."""
-    p = st.session_state.get("purchase_df", pd.DataFrame())
-    ims = st.session_state.get("ims_df", pd.DataFrame())
-
-    if not v10_df_loaded(p) and not v10_df_loaded(ims):
-        v10_empty_upload_notice(
-            "Upload files to view quality summary",
-            "Purchase Register and IMS JSON quality cards will appear here after you upload and process the files."
-        )
-        return
-
-    st.markdown("### Upload Quality Summary")
-    c1, c2 = st.columns(2)
-
-    with c1:
-        if v10_df_loaded(p):
-            v10_render_html(v10_quality_card(p, "Purchase Register Quality"))
-        else:
-            v10_empty_upload_notice(
-                "Purchase Register not processed",
-                "Upload and process Purchase Register to view Records, Taxable Value, IGST, CGST, SGST, CESS and Total Tax."
-            )
-
-    with c2:
-        if v10_df_loaded(ims):
-            v10_render_html(v10_quality_card(ims, "IMS JSON Quality"))
-        else:
-            v10_empty_upload_notice(
-                "IMS JSON not processed",
-                "Upload and process GST IMS JSON to view Records, Taxable Value, IGST, CGST, SGST, CESS and Total Tax."
-            )
 
 # =========================================================
 # DATA PROCESSING
@@ -2103,7 +2061,6 @@ def upload_quality_summary(df: pd.DataFrame, label: str) -> pd.DataFrame:
             "Check": check,
             "Records": int(len(subset)),
             "Taxable Value": round(safe_float_value(subset.get("taxable_value", pd.Series(dtype=float)).sum()) if "taxable_value" in subset else 0, 2),
-            "Invoice Value": round(safe_float_value(subset.get("invoice_value", pd.Series(dtype=float)).sum()) if "invoice_value" in subset else 0, 2),
             "IGST": round(safe_float_value(subset.get("igst", pd.Series(dtype=float)).sum()) if "igst" in subset else 0, 2),
             "CGST": round(safe_float_value(subset.get("cgst", pd.Series(dtype=float)).sum()) if "cgst" in subset else 0, 2),
             "SGST": round(safe_float_value(subset.get("sgst", pd.Series(dtype=float)).sum()) if "sgst" in subset else 0, 2),
@@ -2642,7 +2599,7 @@ def login_page():
             <div class='login-sub'>Secure GST IMS Reconciliation Platform<br>© @BAJRABHANU</div>
     """, unsafe_allow_html=True)
 
-    username = st.text_input("User ID", placeholder="Enter your User ID")
+    username = st.text_input("User ID", placeholder="MainAdmin / User1 / User2")
     password = st.text_input("Password", type="password", placeholder="Enter password")
 
     if st.button("🔐 Login Securely", use_container_width=True):
@@ -2860,7 +2817,7 @@ def upload_center_page():
     with tabs[2]:
         show_df(st.session_state.recon_df.head(100))
 
-    st.markdown("### V10.1 Upload Validation — Taxable Value and Tax Head Wise")
+    st.markdown("### V7.1 Upload Validation — Taxable Value and Tax Head Wise")
     vtab1, vtab2, vtab3 = st.tabs(["Purchase Quality", "IMS Quality", "Duplicate Report"])
     with vtab1:
         show_df(upload_quality_summary(st.session_state.purchase_df, "Purchase Register"), 50)
@@ -3525,207 +3482,81 @@ def v10_command_center():
 
 
 def v10_quality_dashboard():
+    """
+    Upload Data Quality Dashboard — native Streamlit implementation.
+    No raw HTML is used here, so HTML code cannot appear on screen.
+    UI-only function. GST JSON generation logic is untouched.
+    """
     p = st.session_state.get("purchase_df", pd.DataFrame())
     ims = st.session_state.get("ims_df", pd.DataFrame())
-    p_score = v10_quality_score(p)
-    ims_score = v10_quality_score(ims)
 
-    def card(title, df, score, source):
-        total_tax = sum(v10_safe_sum(df, c) for c in ["igst", "cgst", "sgst", "cess"])
-        taxable = v10_safe_sum(df, "taxable_value")
-        invoice_value = v10_safe_sum(df, "invoice_value")
-        cls = v10_score_class(score)
-        return f"""
-        <div class='v10-quality-card'>
-            <div class='v10-quality-head'>
-                <div>
-                    <div class='v10-quality-title'>{title}</div>
-                    <div style='font-size:13px;color:#60748f;margin-top:5px;'>Data health, amount and tax summary</div>
-                </div>
-                <div class='v10-quality-score {cls}'>{score}%</div>
-            </div>
-            <div class='v10-mini-grid'>
-                <div class='v10-mini-stat'><div class='v10-mini-label'>Records</div><div class='v10-mini-value'>{len(df):,}</div></div>
-                <div class='v10-mini-stat'><div class='v10-mini-label'>Taxable</div><div class='v10-mini-value'>₹{taxable:,.0f}</div></div>
-                <div class='v10-mini-stat'><div class='v10-mini-label'>Invoice Value</div><div class='v10-mini-value'>₹{invoice_value:,.0f}</div></div>
-                <div class='v10-mini-stat'><div class='v10-mini-label'>IGST</div><div class='v10-mini-value'>₹{v10_safe_sum(df, "igst"):,.0f}</div></div>
-                <div class='v10-mini-stat'><div class='v10-mini-label'>CGST</div><div class='v10-mini-value'>₹{v10_safe_sum(df, "cgst"):,.0f}</div></div>
-                <div class='v10-mini-stat'><div class='v10-mini-label'>SGST</div><div class='v10-mini-value'>₹{v10_safe_sum(df, "sgst"):,.0f}</div></div>
-                <div class='v10-mini-stat'><div class='v10-mini-label'>CESS</div><div class='v10-mini-value'>₹{v10_safe_sum(df, "cess"):,.0f}</div></div>
-                <div class='v10-mini-stat'><div class='v10-mini-label'>Total Tax</div><div class='v10-mini-value'>₹{total_tax:,.0f}</div></div>
-            </div>
-        </div>
-        """
+    def amount_summary(df):
+        if not isinstance(df, pd.DataFrame) or df.empty:
+            return {
+                "records": 0,
+                "taxable": 0.0,
+                "invoice_value": 0.0,
+                "igst": 0.0,
+                "cgst": 0.0,
+                "sgst": 0.0,
+                "cess": 0.0,
+                "total_tax": 0.0,
+            }
 
-    st.markdown(f"""
-    <div class='v10-quality-grid'>
-        {card("Purchase Register Quality", p, p_score, "Purchase")}
-        {card("IMS JSON Quality", ims, ims_score, "IMS")}
-    </div>
-    """, unsafe_allow_html=True)
+        igst = v10_safe_sum(df, "igst")
+        cgst = v10_safe_sum(df, "cgst")
+        sgst = v10_safe_sum(df, "sgst")
+        cess = v10_safe_sum(df, "cess")
+        return {
+            "records": len(df),
+            "taxable": v10_safe_sum(df, "taxable_value"),
+            "invoice_value": v10_safe_sum(df, "invoice_value"),
+            "igst": igst,
+            "cgst": cgst,
+            "sgst": sgst,
+            "cess": cess,
+            "total_tax": igst + cgst + sgst + cess,
+        }
 
+    def quality_status(score):
+        if score >= 90:
+            return "Strong data quality"
+        if score >= 70:
+            return "Review recommended"
+        return "Upload/check data"
 
-def v10_empty_state(title: str, text: str, icon: str = "📭"):
-    st.markdown(f"""
-    <div class='v10-empty-state'>
-        <div class='v10-empty-icon'>{icon}</div>
-        <div class='v10-empty-title'>{title}</div>
-        <div class='v10-empty-text'>{text}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    def render_quality(title, df, icon):
+        score = v10_quality_score(df)
+        data = amount_summary(df)
 
+        st.markdown(f"#### {icon} {title}")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Data Quality", f"{score}%", quality_status(score))
+        c2.metric("Records", f"{data['records']:,}")
+        c3.metric("Taxable Value", f"₹{data['taxable']:,.0f}")
+        c4.metric("Invoice Value", f"₹{data['invoice_value']:,.0f}")
 
-def v10_reco_control_room():
-    recon = st.session_state.get("recon_df", pd.DataFrame())
-    action = st.session_state.get("action_df", pd.DataFrame())
+        c5, c6, c7, c8 = st.columns(4)
+        c5.metric("IGST", f"₹{data['igst']:,.0f}")
+        c6.metric("CGST", f"₹{data['cgst']:,.0f}")
+        c7.metric("SGST", f"₹{data['sgst']:,.0f}")
+        c8.metric("CESS", f"₹{data['cess']:,.0f}")
 
-    if not isinstance(recon, pd.DataFrame) or recon.empty:
-        v10_empty_state("Reconciliation not started yet", "Upload Purchase Register and IMS JSON, then run reconciliation to open the control room.", "🔄")
-        return
+        c9, _, _, _ = st.columns(4)
+        c9.metric("Total Tax", f"₹{data['total_tax']:,.0f}")
 
-    def count_col(df, col, value):
-        try:
-            return int((df[col] == value).sum()) if col in df.columns else 0
-        except Exception:
-            return 0
+    st.markdown("### 📊 Upload Data Quality")
+    st.caption("Data health, amount and tax summary for Purchase Register and IMS JSON.")
 
-    matched = count_col(recon, "mismatch_type", "Matched")
-    only_ims = count_col(recon, "mismatch_type", "Only in IMS")
-    only_purchase = count_col(recon, "mismatch_type", "Only in Purchase")
-    value_mismatch = int(recon.get("mismatch_type", pd.Series(dtype=str)).astype(str).str.contains("Value", case=False, na=False).sum()) if "mismatch_type" in recon.columns else 0
-    highrisk = int(action.get("risk_level", pd.Series(dtype=str)).isin(["High", "Critical"]).sum()) if isinstance(action, pd.DataFrame) and not action.empty and "risk_level" in action.columns else 0
+    left, right = st.columns(2)
+    with left:
+        with st.container(border=True):
+            render_quality("Purchase Register Quality", p, "📘")
 
-    st.markdown(f"""
-    <div class='v10-control-room'>
-        <div class='v10-control-main'>
-            <div class='v10-control-title'>🎛️ Reconciliation Control Room</div>
-            <div style='font-size:14px;color:#60748f;line-height:1.5;'>Focus on exception areas first. Use the Action Center to finalize Accepted, Pending and Rejected actions.</div>
-            <div class='v10-badge-row'>
-                <span class='v10-filter-badge green'>✅ Matched: {matched:,}</span>
-                <span class='v10-filter-badge orange'>🟠 Only in IMS: {only_ims:,}</span>
-                <span class='v10-filter-badge purple'>📘 Only in Purchase: {only_purchase:,}</span>
-                <span class='v10-filter-badge red'>⚠️ Value Mismatch: {value_mismatch:,}</span>
-                <span class='v10-filter-badge red'>🔥 High Risk: {highrisk:,}</span>
-            </div>
-        </div>
-        <div class='v10-control-side'>
-            <div class='v10-control-title'>🧭 Suggested Review Order</div>
-            <div class='v10-badge-row'>
-                <span class='v10-filter-badge red'>1. High Risk</span>
-                <span class='v10-filter-badge orange'>2. Value Mismatch</span>
-                <span class='v10-filter-badge purple'>3. Only in IMS</span>
-                <span class='v10-filter-badge green'>4. Matched</span>
-            </div>
-            <div style='font-size:13px;color:#60748f;line-height:1.55;'>This review flow helps users reach final action faster and reduces manual checking effort.</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    with right:
+        with st.container(border=True):
+            render_quality("IMS JSON Quality", ims, "🧾")
 
-
-def v10_action_header():
-    action = st.session_state.get("action_df", pd.DataFrame())
-    if not isinstance(action, pd.DataFrame) or action.empty:
-        v10_empty_state("No action table available", "Run reconciliation first, then review invoice-wise actions here.", "✅")
-        return
-
-    def c(value):
-        try:
-            return int((action["final_user_action"] == value).sum()) if "final_user_action" in action.columns else 0
-        except Exception:
-            return 0
-
-    accepted, pending, rejected = c("Accepted"), c("Pending"), c("Rejected")
-    review = c("Review")
-    no_action = c("No Action")
-
-    st.markdown(f"""
-    <div class='v10-control-main' style='margin:14px 0 18px 0;'>
-        <div class='v10-control-title'>✅ Action Center Command Bar</div>
-        <div style='font-size:14px;color:#60748f;line-height:1.5;'>Use filters, manual action and remarks to finalize invoices before GST JSON generation.</div>
-        <div class='v10-badge-row'>
-            <span class='v10-filter-badge green'>Accepted: {accepted:,}</span>
-            <span class='v10-filter-badge orange'>Pending: {pending:,}</span>
-            <span class='v10-filter-badge red'>Rejected: {rejected:,}</span>
-            <span class='v10-filter-badge purple'>Review: {review:,}</span>
-            <span class='v10-filter-badge'>No Action: {no_action:,}</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-def v10_final_json_review_ui():
-    action = st.session_state.get("action_df", pd.DataFrame())
-    ims = st.session_state.get("ims_df", pd.DataFrame())
-
-    accepted = pending = rejected = no_action = review = 0
-    if isinstance(action, pd.DataFrame) and not action.empty and "final_user_action" in action.columns:
-        accepted = int((action["final_user_action"] == "Accepted").sum())
-        pending = int((action["final_user_action"] == "Pending").sum())
-        rejected = int((action["final_user_action"] == "Rejected").sum())
-        no_action = int((action["final_user_action"] == "No Action").sum())
-        review = int((action["final_user_action"] == "Review").sum())
-
-    sections = 0
-    try:
-        if isinstance(ims, pd.DataFrame) and "ims_section" in ims.columns:
-            sections = ims["ims_section"].nunique()
-    except Exception:
-        sections = 0
-
-    st.markdown(f"""
-    <div class='v10-json-review'>
-        <div class='v10-json-title'>🧾 Final GST Upload JSON Review</div>
-        <div class='v10-json-checks'>
-            <div class='v10-json-check'><div class='v10-json-check-icon'>✅</div><div class='v10-json-check-label'>Accepted<br>{accepted:,}</div></div>
-            <div class='v10-json-check'><div class='v10-json-check-icon'>🟠</div><div class='v10-json-check-label'>Pending<br>{pending:,}</div></div>
-            <div class='v10-json-check'><div class='v10-json-check-icon'>🔴</div><div class='v10-json-check-label'>Rejected<br>{rejected:,}</div></div>
-            <div class='v10-json-check'><div class='v10-json-check-icon'>📦</div><div class='v10-json-check-label'>IMS Sections<br>{sections:,}</div></div>
-            <div class='v10-json-check'><div class='v10-json-check-icon'>🛡️</div><div class='v10-json-check-label'>GST JSON Logic<br>Protected</div></div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-def v10_management_summary():
-    p = st.session_state.get("purchase_df", pd.DataFrame())
-    ims = st.session_state.get("ims_df", pd.DataFrame())
-    action = st.session_state.get("action_df", pd.DataFrame())
-
-    accepted = pending = rejected = 0
-    if isinstance(action, pd.DataFrame) and not action.empty and "final_user_action" in action.columns:
-        accepted = int((action["final_user_action"] == "Accepted").sum())
-        pending = int((action["final_user_action"] == "Pending").sum())
-        rejected = int((action["final_user_action"] == "Rejected").sum())
-
-    summary = (
-        f"For the selected period, Purchase Register has {len(p):,} records and IMS JSON has {len(ims):,} records. "
-        f"Based on current action review, {accepted:,} records are marked Accepted, {pending:,} records are marked Pending, "
-        f"and {rejected:,} records are marked Rejected. The final GST upload JSON should be generated only after completing invoice-wise review."
-    )
-
-    st.markdown(f"""
-    <div class='v10-management-summary'>
-        <div class='v10-management-title'>📝 Management Summary</div>
-        <div class='v10-management-text'>{summary}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-def v10_help_tooltips():
-    st.markdown("""
-    <div class='v10-tooltip-grid'>
-        <div class='v10-tooltip'><div class='v10-tooltip-title'>What is IMS JSON?</div><div class='v10-tooltip-text'>The file downloaded from GST portal containing inward supply records and action fields.</div></div>
-        <div class='v10-tooltip'><div class='v10-tooltip-title'>When to mark Pending?</div><div class='v10-tooltip-text'>Use Pending for unmatched, disputed or review-required invoices.</div></div>
-        <div class='v10-tooltip'><div class='v10-tooltip-title'>When to Accept?</div><div class='v10-tooltip-text'>Use Accepted when invoice details match books and credit/action is acceptable.</div></div>
-        <div class='v10-tooltip'><div class='v10-tooltip-title'>Final JSON?</div><div class='v10-tooltip-text'>Generated after action review and uploaded back to GST portal.</div></div>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-
-# =========================================================
-# MAIN
-# =========================================================
 
 def main():
     init_db()
