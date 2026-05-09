@@ -1828,11 +1828,45 @@ def _clean_ims_upload_record(source_item: dict, action_code: str) -> dict:
 
 
 def _record_missing_mandatory(upload_item: dict) -> list:
-    mandatory = ["stin", "inum", "inv_typ", "idt", "val", "action", "pos", "txval", "srcform", "rtnprd", "srcfilstatus"]
+    """
+    Validate mandatory fields without disturbing final GST JSON generation.
+
+    Important correction:
+    - B2B Invoice uses: inum, idt, inv_typ
+    - Credit Note / Debit Note may use: nt_num, nt_dt, ntty
+    - Therefore, do not skip CN/DN only because inum/idt/inv_typ are not present.
+    """
+
     missing = []
-    for key in mandatory:
+
+    # Common mandatory fields
+    common_mandatory = ["stin", "val", "action", "pos", "txval", "srcform", "rtnprd", "srcfilstatus"]
+
+    for key in common_mandatory:
         if key not in upload_item or upload_item.get(key) in [None, ""]:
             missing.append(key)
+
+    # Document number: Invoice = inum, CN/DN = nt_num
+    if not (
+        upload_item.get("inum") not in [None, ""]
+        or upload_item.get("nt_num") not in [None, ""]
+    ):
+        missing.append("inum/nt_num")
+
+    # Document date: Invoice = idt, CN/DN = nt_dt
+    if not (
+        upload_item.get("idt") not in [None, ""]
+        or upload_item.get("nt_dt") not in [None, ""]
+    ):
+        missing.append("idt/nt_dt")
+
+    # Document type: Invoice = inv_typ, CN/DN = ntty
+    if not (
+        upload_item.get("inv_typ") not in [None, ""]
+        or upload_item.get("ntty") not in [None, ""]
+    ):
+        missing.append("inv_typ/ntty")
+
     return missing
 
 
