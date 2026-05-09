@@ -26,7 +26,7 @@ APP_TITLE = "IMS Recon Pro"
 APP_TAGLINE = "Intelligent GST IMS Reconciliation & Action Management Platform"
 COPYRIGHT_OWNER = "@BAJRABHANU"
 APP_DB = "ims_recon_pro.db"
-ENGINE_VERSION = "2026.05.08-V10.2"
+ENGINE_VERSION = "2026.05.09-V10.5-IMS-CN-ITC-FIX"
 
 IMS_SHEETS = ["B2B", "B2BA", "B2B-DN", "B2B-DNA", "B2B-CN", "B2B-CNA"]
 ACTION_VALUES = ["No Action", "Accepted", "Rejected", "Pending", "Review"]
@@ -1935,6 +1935,27 @@ def _clean_ims_upload_record(source_item: dict, action_code: str, section: str =
 
     # Only action is forcibly changed. No ntty / renamed fields are added.
     out["action"] = action_code
+
+    # =========================================================
+    # GST PORTAL IMS B2B-CN IMPORTANT FIX
+    # =========================================================
+    # The official IMS Offline Tool has one extra taxpayer input field for
+    # Accepted Credit Notes: "Whether ITC to be reduced". In JSON this is
+    # linked with the portal field family "itcRedReq" / "itcRedReqBlocked".
+    #
+    # Without this field, GST portal may process the file but show error like
+    # "No action taken in B2B Credit Notes" because the CN action is incomplete.
+    #
+    # Apply it ONLY for accepted Credit Note sections. For Pending/Rejected/No
+    # Action, do not add it because GST utility instructions say this field is
+    # applicable only for Accepted records in relevant sections.
+    section_norm = str(section or "").lower().replace("_", "").replace("-", "")
+    is_credit_note_section = section_norm in ["b2bcn", "b2bcna", "cdnr", "cdnra", "cn", "cna"] or "cn" in section_norm
+
+    if is_credit_note_section and str(action_code).upper() == "A":
+        if not get_json_value(out, "itcRedReq", "itcredreq", default=""):
+            out["itcRedReq"] = "Y"
+
     return out
 
 def _record_missing_mandatory(upload_item: dict, section: str = "") -> list:
