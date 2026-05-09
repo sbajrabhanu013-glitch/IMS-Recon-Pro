@@ -1529,22 +1529,51 @@ def to_excel_date_string(value):
 
 
 def get_json_value(rec: dict, *keys, default=""):
+    """
+    Robust GST JSON value reader.
+
+    GST portal/downloaded IMS JSON may use small variations in field names:
+    - nt_num / ntnum / NT_NUM
+    - nt_dt  / ntdt  / NT_DT
+    - inv_typ / invtyp
+
+    This function keeps the existing logic but also matches keys after removing
+    spaces, underscores, hyphens and case differences. This is very important
+    for B2B Credit Note / Debit Note matching.
+    """
+    if not isinstance(rec, dict):
+        return default
+
+    blank_values = [None, "", "nan", "NaN", "None", "<NA>"]
+
+    def norm_key(value):
+        return re.sub(r"[^a-z0-9]", "", str(value or "").lower())
+
+    # 1) Exact key match first
     for key in keys:
-        if key in rec and rec.get(key) not in [None, ""]:
+        if key in rec and rec.get(key) not in blank_values:
             return rec.get(key)
+
+    # 2) Case-insensitive match
     lowered = {str(k).lower(): v for k, v in rec.items()}
     for key in keys:
         k = str(key).lower()
-        if k in lowered and lowered[k] not in [None, ""]:
+        if k in lowered and lowered[k] not in blank_values:
             return lowered[k]
-    return default
 
+    # 3) Normalized match: ignores underscore, hyphen, space and case
+    normalized = {norm_key(k): v for k, v in rec.items()}
+    for key in keys:
+        nk = norm_key(key)
+        if nk in normalized and normalized[nk] not in blank_values:
+            return normalized[nk]
+
+    return default
 
 def action_for_record(rec: dict, action_map: dict) -> str:
     gstin = normalize_gstin(get_json_value(rec, "stin", "ctin", "supplier_gstin"))
-    doc_no = normalize_doc_no(get_json_value(rec, "inum", "nt_num", "document_no", "oinum"))
+    doc_no = normalize_doc_no(get_json_value(rec, "inum", "nt_num", "ntnum", "document_no", "oinum"))
     return action_map.get((gstin, doc_no), "Pending")
-
 
 def build_action_map(recon: pd.DataFrame) -> dict:
     if recon is None or recon.empty:
@@ -1604,9 +1633,9 @@ def populate_ims_utility_xlsm(template_bytes: bytes, records: List[dict], recon:
             status = action_for_record(rec, action_map)
             gstin = normalize_gstin(get_json_value(rec, "stin", "ctin", "supplier_gstin"))
             trade = get_json_value(rec, "tradenm", "supplier_name")
-            doc_no = get_json_value(rec, "inum", "nt_num", "document_no")
-            doc_type = get_json_value(rec, "inv_typ", "ntty", "document_type", default="R")
-            doc_date = to_excel_date_string(get_json_value(rec, "idt", "nt_dt", "document_date"))
+            doc_no = get_json_value(rec, "inum", "nt_num", "ntnum", "document_no")
+            doc_type = get_json_value(rec, "inv_typ", "invtyp", "ntty", "document_type", default="R")
+            doc_date = to_excel_date_string(get_json_value(rec, "idt", "nt_dt", "ntdt", "document_date"))
             doc_val = get_json_value(rec, "val", "invoice_value", default=0)
             pos = get_json_value(rec, "pos", default="")
             txval = get_json_value(rec, "txval", "taxable_value", default=0)
@@ -1801,7 +1830,7 @@ def update_ims_json_actions_from_utility(original_json: dict, action_map: dict) 
                         if not isinstance(item, dict):
                             continue
                         gstin = normalize_gstin(get_json_value(item, "stin", "ctin", "supplier_gstin"))
-                        doc_no = get_json_value(item, "inum", "nt_num", "document_no", "oinum")
+                        doc_no = get_json_value(item, "inum", "nt_num", "ntnum", "document_no", "oinum")
                         doc_norm = normalize_doc_no(doc_no)
                         status = action_map.get((section, gstin, doc_norm)) or action_map.get((gstin, doc_norm))
                         if status:
@@ -1851,22 +1880,32 @@ def _compact_json_number(value):
     return value
 
 
-def _clean_ims_upload_record(source_item: dict, action_code: str) -> dict:
+def _clean_ims_upload_record(source_item: dict, action_code: str, section: str = "") -> dict:
     """
     Create one GST IMS upload record.
 
-    V6 important correction:
-    - For normal B2B records, the official utility output has common keys.
-    - For amendment sections such as b2ba/b2bdna/b2bcna, GST may require
-      additional original-document fields from the downloaded JSON.
-    - Therefore we preserve all GST-source keys from the original downloaded
-      JSON record except known non-upload/display/internal keys.
-    - This prevents amendment records from losing mandatory fields and causing
-      GST schema validation failure.
+    V10.3 Credit Note / Debit Note correction:
+    - Normal B2B invoices use inum / idt / inv_typ.
+    - B2B-CN / B2B-DN records must be actioned with note fields:
+        nt_num / nt_dt / ntty
+    - Some GST downloaded IMS JSON files contain Credit Note rows with
+      nt_num / nt_dt but without ntty, or with inv_typ='R'. In that case the
+      portal may upload the file but not apply action in B2B Credit Notes.
+    - Therefore, for note sections only, this function creates portal-safe
+      note identity fields and does not send inv_typ as the document-type
+      field for CN/DN.
+
+    The final JSON generation wrapper and the existing action logic are not
+    changed. Only record-level field cleaning is strengthened.
     """
 
     if not isinstance(source_item, dict):
         source_item = {}
+
+    section_norm = str(section or source_item.get("__section", "")).lower().replace("_", "").replace("-", "")
+    is_cn_section = section_norm in ["b2bcn", "b2bcna", "cdnr", "cdnra", "cn", "cna"] or "cn" in section_norm
+    is_dn_section = section_norm in ["b2bdn", "b2bdna", "dn", "dna"] or "dn" in section_norm
+    is_note_section = is_cn_section or is_dn_section
 
     # Never send these to GST upload JSON. They are either display-only from the
     # downloaded JSON or internal to this app/reporting layer.
@@ -1877,30 +1916,61 @@ def _clean_ims_upload_record(source_item: dict, action_code: str) -> dict:
         "mismatch_type", "risk_level", "risk_score", "reason",
         "match_status", "confidence_score", "source", "ims_sheet",
         "document_norm", "data_quality", "gstin_valid",
+        "__section", "__json_key", "_json_path",
     }
 
-    # Keep GST utility's familiar order first, then append amendment-specific
-    # keys from the source record, preserving their original names.
+    # Keep GST utility's familiar order first, then append other GST-source keys.
     preferred_order = [
-        "stin", "inum", "inv_typ", "idt", "val", "action", "pos", "txval",
-        "iamt", "camt", "samt", "cess", "srcform", "rtnprd", "srcfilstatus",
-        "ispendactblocked", "isRemarksBlocked"
+        "stin",
+        "inum", "inv_typ", "idt",
+        "nt_num", "ntnum", "ntty", "nt_dt", "ntdt",
+        "val", "action", "pos", "txval",
+        "iamt", "camt", "samt", "cess",
+        "srcform", "rtnprd", "srcfilstatus",
+        "ispendactblocked", "isRemarksBlocked", "itcRedReqBlocked"
     ]
 
     out = {}
+
+    # Note sections need a note type. GST normally uses C for Credit Note and D for Debit Note.
+    if is_note_section:
+        note_no = get_json_value(source_item, "nt_num", "ntnum", "note_number", "document_no", "inum")
+        note_dt = get_json_value(source_item, "nt_dt", "ntdt", "note_date", "document_date", "idt")
+        note_type = get_json_value(source_item, "ntty", "note_type")
+        if not note_type:
+            note_type = "C" if is_cn_section else "D"
+
+        # Preserve GSTIN first, then write note identity fields explicitly.
+        stin = get_json_value(source_item, "stin", "ctin", "supplier_gstin")
+        if stin not in [None, ""]:
+            out["stin"] = _compact_json_number(stin)
+        if note_no not in [None, ""]:
+            out["nt_num"] = _compact_json_number(note_no)
+        if note_type not in [None, ""]:
+            out["ntty"] = _compact_json_number(note_type)
+        if note_dt not in [None, ""]:
+            out["nt_dt"] = _compact_json_number(note_dt)
+
     for key in preferred_order:
         if key == "action":
             out["action"] = action_code
-        elif key in source_item and key not in blocked_keys:
+            continue
+
+        # For Credit Note / Debit Note, do not send invoice identity fields as
+        # the primary identity. They can make the portal ignore CN/DN action.
+        if is_note_section and key in ["inum", "inv_typ", "idt", "ntnum", "ntdt"]:
+            continue
+
+        if key in source_item and key not in blocked_keys:
             out[key] = _compact_json_number(source_item.get(key))
 
-    # Append remaining GST-source keys, e.g. original invoice/date fields in
-    # amendment sections. Do not invent names; keep exactly what GST JSON gave us.
+    # Append remaining GST-source keys, preserving their original names.
     for key, value in source_item.items():
         if key in blocked_keys or key in out or key == "action":
             continue
-        # Avoid app-created Python helper columns accidentally entering JSON.
         if str(key).startswith("_"):
+            continue
+        if is_note_section and key in ["inum", "inv_typ", "idt", "ntnum", "ntdt"]:
             continue
         out[key] = _compact_json_number(value)
 
@@ -1912,23 +1982,24 @@ def _clean_ims_upload_record(source_item: dict, action_code: str) -> dict:
     out["action"] = action_code
     return out
 
-
-def _record_missing_mandatory(upload_item: dict) -> list:
+def _record_missing_mandatory(upload_item: dict, section: str = "") -> list:
     """
     GST IMS upload validation.
 
-    Normal B2B Invoice fields:
+    B2B Invoice:
         inum, idt, inv_typ
 
-    Credit Note / Debit Note fields:
-        nt_num, nt_dt, ntty
+    B2B Credit Note / Debit Note:
+        nt_num / ntnum, nt_dt / ntdt, ntty
 
-    Therefore CN/DN should not be rejected only because inum/idt/inv_typ are blank.
+    This validation is only to avoid generating broken upload records. It does
+    not change the final GST JSON wrapper logic.
     """
 
     missing = []
+    section_norm = str(section or "").lower().replace("_", "").replace("-", "")
+    is_note_section = section_norm in ["b2bcn", "b2bcna", "b2bdn", "b2bdna", "cdnr", "cdnra", "cn", "cna", "dn", "dna"] or "cn" in section_norm or "dn" in section_norm
 
-    # Common mandatory fields generally required in IMS upload record
     common_mandatory = [
         "stin",
         "val",
@@ -1941,33 +2012,25 @@ def _record_missing_mandatory(upload_item: dict) -> list:
     ]
 
     for key in common_mandatory:
-        if key not in upload_item or upload_item.get(key) in [None, ""]:
+        if get_json_value(upload_item, key) in [None, ""]:
             missing.append(key)
 
-    # Document number can be invoice number or note number
-    if not (
-        upload_item.get("inum") not in [None, ""]
-        or upload_item.get("nt_num") not in [None, ""]
-    ):
-        missing.append("inum/nt_num")
-
-    # Document date can be invoice date or note date
-    if not (
-        upload_item.get("idt") not in [None, ""]
-        or upload_item.get("nt_dt") not in [None, ""]
-    ):
-        missing.append("idt/nt_dt")
-
-    # Document type can be invoice type or note type
-    if not (
-        upload_item.get("inv_typ") not in [None, ""]
-        or upload_item.get("ntty") not in [None, ""]
-    ):
-        missing.append("inv_typ/ntty")
+    if is_note_section:
+        if get_json_value(upload_item, "nt_num", "ntnum", "document_no", "inum") in [None, ""]:
+            missing.append("nt_num")
+        if get_json_value(upload_item, "nt_dt", "ntdt", "document_date", "idt") in [None, ""]:
+            missing.append("nt_dt")
+        if get_json_value(upload_item, "ntty", "document_type", "inv_typ") in [None, ""]:
+            missing.append("ntty")
+    else:
+        if get_json_value(upload_item, "inum", "document_no", "nt_num", "ntnum", "oinum") in [None, ""]:
+            missing.append("inum")
+        if get_json_value(upload_item, "idt", "document_date", "nt_dt", "ntdt", "oidt") in [None, ""]:
+            missing.append("idt")
+        if get_json_value(upload_item, "inv_typ", "invtyp", "document_type", "ntty") in [None, ""]:
+            missing.append("inv_typ")
 
     return missing
-
-
 
 def ims_json_section_counts(original_json: dict) -> pd.DataFrame:
     """Return section-wise counts from the uploaded GST IMS JSON / generated upload JSON."""
@@ -2078,7 +2141,7 @@ def generate_gst_upload_json_from_final_actions(original_json: dict, action_df: 
                 continue
 
             gstin = normalize_gstin(get_json_value(item, "stin", "ctin", "supplier_gstin"))
-            doc_no = get_json_value(item, "inum", "nt_num", "document_no", "oinum")
+            doc_no = get_json_value(item, "inum", "nt_num", "ntnum", "document_no", "oinum")
             doc_norm = normalize_doc_no(doc_no)
             if not gstin or not doc_norm:
                 skipped_rows.append({"Section": section, "Supplier GSTIN": gstin, "Document No": doc_no, "Reason": "Missing GSTIN or document number"})
@@ -2108,8 +2171,8 @@ def generate_gst_upload_json_from_final_actions(original_json: dict, action_df: 
                 status = "Pending"
                 action_code = "P"
 
-            upload_item = _clean_ims_upload_record(item, action_code)
-            missing = _record_missing_mandatory(upload_item)
+            upload_item = _clean_ims_upload_record(item, action_code, section)
+            missing = _record_missing_mandatory(upload_item, section)
             if missing:
                 skipped_rows.append({"Section": section, "Supplier GSTIN": gstin, "Document No": doc_no, "Reason": "Missing mandatory fields: " + ", ".join(missing)})
                 continue
