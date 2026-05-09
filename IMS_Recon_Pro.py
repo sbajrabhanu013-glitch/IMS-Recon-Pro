@@ -1240,13 +1240,90 @@ def standardize(df: pd.DataFrame, source_label: str, sheet_name: str = "", defau
             return df[col]
         return pd.Series([default] * n, index=df.index)
 
+    # =====================================================
+    # IMPORTANT FIX FOR GST IMS JSON CREDIT NOTE / DEBIT NOTE
+    # B2B Invoice fields: inum, idt, inv_typ
+    # B2B-CN / B2B-DN fields: nt_num, nt_dt, ntty
+    # In mixed JSON dataframe, inum/idt may exist but remain blank for CN rows.
+    # Therefore, for CN/DN sheets, force priority to nt_num / nt_dt / ntty.
+    # =====================================================
+    sheet_upper = str(sheet_name or "").upper()
+    default_doc_upper = str(default_doc_type or "").upper()
+
+    is_note_section = (
+        "CN" in sheet_upper
+        or "DN" in sheet_upper
+        or "CREDIT" in default_doc_upper
+        or "DEBIT" in default_doc_upper
+    )
+
+    def get_note_safe_value(invoice_field: str, note_field: str, logical: str, default=""):
+        """
+        For Credit Note / Debit Note, prefer note fields like nt_num, nt_dt, ntty.
+        For Invoice, use normal alias logic.
+        """
+        if is_note_section:
+            if note_field in df.columns:
+                return df[note_field]
+            if note_field.upper() in df.columns:
+                return df[note_field.upper()]
+            if note_field.lower() in df.columns:
+                return df[note_field.lower()]
+
+        # Normal existing logic
+        return get(logical, default)
+
     out = pd.DataFrame(index=df.index)
+
     out["supplier_gstin"] = get("supplier_gstin", "").map(normalize_gstin)
     out["supplier_name"] = get("supplier_name", "").astype(str).str.strip()
-    out["document_type"] = get("document_type", default_doc_type).astype(str).replace({"": default_doc_type})
-    out["document_no"] = get("document_no", "").astype(str).str.strip()
+
+    # Document Type
+    if is_note_section:
+        if "ntty" in df.columns:
+            out["document_type"] = df["ntty"].astype(str).str.strip()
+        else:
+            out["document_type"] = pd.Series([default_doc_type] * n, index=df.index)
+    else:
+        out["document_type"] = get("document_type", default_doc_type).astype(str).replace({"": default_doc_type})
+
+    # Convert GST note type C/D into readable document type
+    out["document_type"] = out["document_type"].replace({
+        "C": "Credit Note",
+        "c": "Credit Note",
+        "D": "Debit Note",
+        "d": "Debit Note",
+        "": default_doc_type,
+        "nan": default_doc_type,
+        "None": default_doc_type,
+    })
+
+    # Document Number
+    if is_note_section and "nt_num" in df.columns:
+        out["document_no"] = df["nt_num"].astype(str).str.strip()
+    elif is_note_section and "ntnum" in df.columns:
+        out["document_no"] = df["ntnum"].astype(str).str.strip()
+    else:
+        out["document_no"] = get("document_no", "").astype(str).str.strip()
+
+    # Clean blank-like values
+    out["document_no"] = out["document_no"].replace({
+        "None": "",
+        "nan": "",
+        "NaN": "",
+        "<NA>": "",
+    })
+
     out["document_norm"] = out["document_no"].map(normalize_doc_no)
-    out["document_date"] = to_date(get("document_date", pd.NaT))
+
+    # Document Date
+    if is_note_section and "nt_dt" in df.columns:
+        out["document_date"] = to_date(df["nt_dt"])
+    elif is_note_section and "ntdt" in df.columns:
+        out["document_date"] = to_date(df["ntdt"])
+    else:
+        out["document_date"] = to_date(get("document_date", pd.NaT))
+
     out["invoice_value"] = to_number(get("invoice_value", 0))
     out["taxable_value"] = to_number(get("taxable_value", 0))
     out["igst"] = to_number(get("igst", 0))
@@ -1254,6 +1331,7 @@ def standardize(df: pd.DataFrame, source_label: str, sheet_name: str = "", defau
     out["sgst"] = to_number(get("sgst", 0))
     out["cess"] = to_number(get("cess", 0))
     out["total_tax"] = out[TAX_COLS].sum(axis=1)
+
     out["itc_available"] = get("itc_available", "Yes").astype(str)
     out["ims_status"] = get("ims_status", "No Action").astype(str)
     out["remarks"] = get("remarks", "").astype(str)
@@ -1265,16 +1343,24 @@ def standardize(df: pd.DataFrame, source_label: str, sheet_name: str = "", defau
     out["data_quality"] = out.apply(row_quality_score, axis=1)
 
     sign = out["document_type"].map(sign_for_doc_type)
+
     for c in MONEY_COLS + ["total_tax"]:
         out[c] = out[c] * sign.where(out[c] >= 0, 1)
 
     out = out[
-        ["source", "ims_sheet", "supplier_gstin", "supplier_name", "document_type", "document_no",
-         "document_norm", "document_date", "invoice_value", "taxable_value", "igst", "cgst", "sgst", "cess",
-         "total_tax", "itc_available", "ims_status", "remarks", "pos", "return_period", "gstin_valid",
-         "data_quality"]
+        [
+            "source", "ims_sheet", "supplier_gstin", "supplier_name", "document_type", "document_no",
+            "document_norm", "document_date", "invoice_value", "taxable_value", "igst", "cgst", "sgst", "cess",
+            "total_tax", "itc_available", "ims_status", "remarks", "pos", "return_period", "gstin_valid",
+            "data_quality"
+        ]
     ]
-    out = out[(out["supplier_gstin"].astype(str).str.len() > 0) | (out["document_norm"].astype(str).str.len() > 0)]
+
+    out = out[
+        (out["supplier_gstin"].astype(str).str.len() > 0)
+        | (out["document_norm"].astype(str).str.len() > 0)
+    ]
+
     return out.reset_index(drop=True)
 
 
